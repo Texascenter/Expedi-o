@@ -1475,12 +1475,13 @@ $("#scrim").onclick=closeSide;
    4) Publique as regras do arquivo firestore.rules
    Enquanto a config estiver com "COLE_...", o sistema roda em modo demonstração (local). */
 const FIREBASE_CONFIG = {
-  apiKey: "COLE_SUA_API_KEY",
-  authDomain: "COLE_SEU_PROJETO.firebaseapp.com",
-  projectId: "COLE_SEU_PROJECT_ID",
-  storageBucket: "COLE_SEU_PROJETO.appspot.com",
-  messagingSenderId: "COLE_SEU_SENDER_ID",
-  appId: "COLE_SEU_APP_ID",
+  apiKey: "AIzaSyC7owumsAM_-F5NGPaoibT1s-8vVuR7qqE",
+  authDomain: "texas-57427.firebaseapp.com",
+  projectId: "texas-57427",
+  storageBucket: "texas-57427.firebasestorage.app",
+  messagingSenderId: "632083288603",
+  appId: "1:632083288603:web:a7e6c5270035ed80595ebe",
+  measurementId: "G-6Y521R69CC"
 };
 const AUTH_EMAIL_DOMAIN = "@texascenter.com.br"; // usado só quando o login vier sem "@"
 const DEVICE = "PC-" + Math.random().toString(36).slice(2,6).toUpperCase();
@@ -1488,7 +1489,7 @@ const ROLE_LABEL = {gestor:"Administrador",superadm:"Super Admin",comum:"Usuári
 /* e-mails que recebem perfil elevado já no cadastro (precisa bater com a regra do Firestore) */
 const BOOTSTRAP = {
   "rayllan@texascenter.com.br":     {role:"gestor",   name:"Rayllan"},
-  "davi.nascimento@texas.com.br":   {role:"superadm", name:"Davi Nascimento"},
+  "davi.nascimento@texascenter.com.br":   {role:"superadm", name:"Davi Nascimento"},
 };
 let signingUp=false;
 
