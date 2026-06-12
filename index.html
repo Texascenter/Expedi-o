@@ -393,6 +393,12 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .pg-item:hover{background:#fff}
 .pg-item input{width:16px;height:16px;accent-color:var(--ferro);flex:0 0 auto;cursor:pointer}
 .pg-sig{font-family:"Oswald";font-weight:600;font-size:10px;width:24px;height:20px;display:grid;place-items:center;border-radius:5px;background:#1f160d;color:#cdb892;flex:0 0 auto}
+.boot{display:none;position:fixed;inset:0;z-index:95;background:var(--bran);align-items:center;justify-content:center}
+.boot-card{display:flex;flex-direction:column;align-items:center;gap:16px;color:var(--ink-2)}
+.boot-card .brand-mark{width:54px;height:54px;font-size:22px;margin:0}
+.boot-spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--ferro);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.boot p{font-size:12.5px;font-family:"Oswald";letter-spacing:1px;text-transform:uppercase;margin:0}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -447,6 +453,14 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
         <p class="lc-switch">Já tem conta? <a id="to-login" tabindex="0">Entrar</a></p>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="boot" id="boot">
+  <div class="boot-card">
+    <div class="brand-mark">TX</div>
+    <div class="boot-spin"></div>
+    <p>Restaurando sessão…</p>
   </div>
 </div>
 
@@ -1687,16 +1701,24 @@ function doLogin(user){
   CURRENT_ROLE=user.role;
   ALLOWED=computeAllowed(user);
   $("#login-err").classList.remove("show");
+  $("#boot").style.display="none";
   $("#login").style.display="none";
   $("#shell").style.display="grid";
   renderUser();
   startLiveSync();
   go(landingFor(user));
 }
+function showLoginScreen(){
+  $("#boot").style.display="none";
+  $("#shell").style.display="none";
+  $("#login").style.display="grid";
+  if(typeof showSignup==="function") showSignup(false);
+}
 function logout(){
   stopLiveSync();
   const finish=()=>{
     CURRENT_USER=null;CURRENT_ROLE=null;ALLOWED=null;closeSide();
+    $("#boot").style.display="none";
     $("#shell").style.display="none";
     $("#login").style.display="grid";
     $("#lg-pass").value="";
@@ -1714,12 +1736,12 @@ function setLoginBusy(b){ loginBusy=b; const g=$("#login-go"); g.disabled=b; g.t
 function loadProfileAndEnter(fbUser){
   db.collection("users").doc(fbUser.uid).get().then(snap=>{
     setLoginBusy(false);
-    if(!snap.exists){ loginFail("Usuário sem perfil cadastrado. Avise o administrador."); auth.signOut(); return; }
+    if(!snap.exists){ showLoginScreen(); loginFail("Conta sem perfil cadastrado. Crie a conta de novo ou avise o administrador."); auth.signOut(); return; }
     const d=snap.data();
-    if(!ROLES[d.role]){ loginFail("Perfil inválido no cadastro: "+d.role); auth.signOut(); return; }
-    doLogin({uid:fbUser.uid, login:d.login||fbUser.email, name:d.name||fbUser.email, role:d.role});
+    if(!ROLES[d.role]){ showLoginScreen(); loginFail("Perfil inválido no cadastro: "+d.role); auth.signOut(); return; }
+    doLogin({uid:fbUser.uid, login:d.login||fbUser.email, name:d.name||fbUser.email, role:d.role, pages:d.pages||[]});
     recordAction("Acesso","Login","","Entrou — "+DEVICE);
-  }).catch(()=>{ setLoginBusy(false); loginFail("Falha ao carregar perfil."); });
+  }).catch(()=>{ setLoginBusy(false); showLoginScreen(); loginFail("Falha ao carregar perfil. Tente novamente."); });
 }
 function attemptLogin(){
   if(loginBusy) return;
@@ -1770,9 +1792,23 @@ $("#demobar").style.display = FB_ENABLED ? "none" : "flex";
 $("#demo-hint").style.display = FB_ENABLED ? "none" : "block";
 
 if(FB_ENABLED && auth){
-  auth.onAuthStateChanged(u=>{ if(u && !CURRENT_USER && !signingUp) loadProfileAndEnter(u); });
+  // mantém a sessão entre recarregamentos
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+  // ao recarregar, mostra "Restaurando sessão" em vez da tela de login
+  $("#login").style.display="none";
+  $("#boot").style.display="flex";
+  let resolved=false;
+  auth.onAuthStateChanged(u=>{
+    resolved=true;
+    if(u && !CURRENT_USER && !signingUp) loadProfileAndEnter(u);
+    else if(!u && !CURRENT_USER) showLoginScreen();
+  });
+  // segurança: se o Firebase não responder, libera o login
+  setTimeout(()=>{ if(!resolved && !CURRENT_USER) showLoginScreen(); }, 6000);
+} else {
+  $("#login").style.display="grid";
+  $("#lg-user").focus();
 }
-$("#lg-user").focus();
 </script>
 </body>
 </html>
