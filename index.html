@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Texas Flow — Gestão de Recebimento, Cadastro e Publicação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --saddle:#3a2a1c;
+  --saddle-2:#2c1f14;
+  --saddle-3:#241a11;
+  --bran:#f4efe5;
+  --paper:#fbf8f1;
+  --card:#ffffff;
+  --ink:#2a2017;
+  --ink-2:#6f6354;
+  --ink-3:#9c8f7d;
+  --line:#e7ddcb;
+  --line-2:#efe7d8;
+  --ferro:#b8521a;      /* branding-iron copper */
+  --ferro-2:#933f12;
+  --tan:#d9a441;        /* warm tan */
+  /* status tones */
+  --ok:#2f7d4f;        --ok-bg:#e7f2ea;
+  --warn:#a76b00;      --warn-bg:#faf0d6;
+  --amber:#9a6326;     --amber-bg:#f4e6d2;
+  --danger:#b3261e;    --danger-bg:#fbe5e2;
+  --process:#3a5d80;   --process-bg:#e6eef4;
+  --pc:#6a4aa0;        --pc-bg:#efe9f8;
+  --shadow:0 1px 2px rgba(46,33,20,.06), 0 8px 24px -16px rgba(46,33,20,.28);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  background:var(--bran);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  font-size:14px;
+  line-height:1.45;
+}
+.mono{font-family:"IBM Plex Mono",monospace}
+.osw{font-family:"Oswald",sans-serif}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+
+/* ---------- sidebar ---------- */
+.side{
+  background:linear-gradient(180deg,var(--saddle) 0%,var(--saddle-2) 60%,var(--saddle-3) 100%);
+  color:#e9ddca;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  border-right:1px solid #1d150d;z-index:40;
+}
+.brand{padding:18px 18px 14px;display:flex;gap:11px;align-items:center;
+  border-bottom:1px dashed rgba(233,221,202,.22);position:relative}
+.brand-mark{
+  width:42px;height:42px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;
+  background:linear-gradient(160deg,var(--ferro),var(--ferro-2));
+  color:#fff;font-family:"Oswald";font-weight:700;font-size:18px;letter-spacing:.5px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 4px 10px -4px rgba(0,0,0,.5);
+}
+.brand-txt b{font-family:"Oswald";font-weight:600;font-size:16px;letter-spacing:.6px;color:#fff;display:block;line-height:1.05}
+.brand-txt span{font-size:11px;color:#b8a585;letter-spacing:.3px}
+
+.nav{flex:1;overflow-y:auto;padding:10px 10px 16px;scrollbar-width:thin;scrollbar-color:#5a4530 transparent}
+.nav::-webkit-scrollbar{width:7px}
+.nav::-webkit-scrollbar-thumb{background:#5a4530;border-radius:8px}
+.nav-group{font-family:"Oswald";font-weight:500;font-size:10.5px;letter-spacing:2px;
+  text-transform:uppercase;color:#9b8767;padding:14px 10px 6px}
+.nav-item{display:flex;gap:10px;align-items:center;width:100%;border:0;background:transparent;
+  color:#ddcfb9;text-align:left;cursor:pointer;padding:7px 9px;border-radius:8px;font:inherit;
+  font-size:13px;transition:background .15s,color .15s;position:relative}
+.nav-item:hover{background:rgba(233,221,202,.08);color:#fff}
+.nav-item.active{background:rgba(184,82,26,.20);color:#fff}
+.nav-item.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--ferro)}
+.sigla{width:26px;height:26px;flex:0 0 auto;border-radius:6px;display:grid;place-items:center;
+  font-family:"Oswald";font-weight:600;font-size:11px;letter-spacing:.5px;
+  background:#1f160d;color:#cdb892;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.nav-item.active .sigla{background:var(--ferro);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.nav-item:hover .sigla{color:#f0e4cf}
+
+.side-user{border-top:1px dashed rgba(233,221,202,.22);padding:12px 14px;display:flex;gap:10px;align-items:center}
+.avatar{width:34px;height:34px;border-radius:8px;background:#1f160d;display:grid;place-items:center;
+  font-family:"Oswald";font-weight:600;color:#cdb892;font-size:13px}
+.side-user .u b{display:block;font-size:13px;color:#fff;line-height:1.1}
+.side-user .u span{font-size:11px;color:#a8916f}
+
+/* ---------- main ---------- */
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{position:sticky;top:0;z-index:30;background:rgba(251,248,241,.86);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:13px 26px;display:flex;align-items:center;gap:18px}
+.tb-title{min-width:0;flex:1}
+.eyebrow{font-family:"Oswald";font-weight:500;font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:var(--ferro)}
+.tb-title h1{margin:1px 0 0;font-family:"Oswald";font-weight:600;font-size:21px;letter-spacing:.3px;color:var(--ink);line-height:1.15}
+.tb-title p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.tb-tools{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+.search{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:9px;padding:7px 11px;width:210px;transition:border-color .15s,box-shadow .15s}
+.search:focus-within{border-color:var(--ferro);box-shadow:0 0 0 3px rgba(184,82,26,.12)}
+.search svg{flex:0 0 auto}
+.search input{border:0;outline:0;background:transparent;font:inherit;font-size:13px;width:100%;color:var(--ink)}
+.search input::placeholder{color:var(--ink-3)}
+.btn{font:inherit;font-size:13px;cursor:pointer;border-radius:9px;padding:8px 13px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);display:inline-flex;gap:7px;align-items:center;
+  transition:background .15s,border-color .15s,transform .05s}
+.btn:hover{background:#fff;border-color:#d8cbb4}
+.btn:active{transform:translateY(1px)}
+.btn-period{font-family:"IBM Plex Sans"}
+.btn-primary{background:var(--ferro);border-color:var(--ferro);color:#fff}
+.btn-primary:hover{background:var(--ferro-2);border-color:var(--ferro-2)}
+.hamb{display:none}
+
+.scroll{overflow-y:auto}
+.view{padding:24px 26px 60px;animation:fade .28s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* content layout: body + map rail */
+.content{display:grid;grid-template-columns:1fr 272px;gap:22px;align-items:start}
+.content.full{grid-template-columns:1fr}
+
+/* ---------- KPI cards ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 16px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--ferro))}
+.kpi .lab{font-family:"Oswald";font-weight:500;font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink-2)}
+.kpi .val{font-family:"Oswald";font-weight:700;font-size:33px;line-height:1.02;color:var(--ink);margin-top:6px;
+  font-variant-numeric:tabular-nums}
+.kpi .val .u{font-size:15px;font-weight:600;color:var(--ink-2);margin-left:2px}
+.kpi .sub{font-size:12px;color:var(--ink-2);margin-top:3px}
+
+/* ---------- panel/table ---------- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.panel-head{padding:13px 16px;border-bottom:1px solid var(--line-2);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.panel-head h2{margin:0;font-family:"Oswald";font-weight:600;font-size:15px;letter-spacing:.3px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font:inherit;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink-2);
+  padding:5px 12px;border-radius:20px;transition:all .14s}
+.chip:hover{border-color:#d4c6ac;color:var(--ink)}
+.chip.on{background:var(--saddle);border-color:var(--saddle);color:#f3e9d8}
+
+.info{margin:0;padding:12px 16px;background:linear-gradient(0deg,#fff,#fdfaf3);border-bottom:1px solid var(--line-2);
+  font-size:13px;color:var(--ink-2);display:flex;gap:10px;align-items:flex-start}
+.info b{color:var(--ink)}
+.info .ico{flex:0 0 auto;color:var(--ferro);margin-top:1px}
+
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+thead th{font-family:"Oswald";font-weight:500;font-size:10.5px;letter-spacing:1.3px;text-transform:uppercase;
+  color:var(--ink-2);text-align:left;padding:11px 14px;background:#faf6ee;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--line-2);font-size:13px;vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.clickable{cursor:pointer;transition:background .12s}
+tbody tr.clickable:hover{background:#fbf7ef}
+td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
+.grade{font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-2)}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3.5px 9px;border-radius:7px;
+  white-space:nowrap;line-height:1.3}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.b-ok{color:var(--ok);background:var(--ok-bg)}
+.b-warn{color:var(--warn);background:var(--warn-bg)}
+.b-amber{color:var(--amber);background:var(--amber-bg)}
+.b-danger{color:var(--danger);background:var(--danger-bg)}
+.b-process{color:var(--process);background:var(--process-bg)}
+.b-pc{color:var(--pc);background:var(--pc-bg)}
+.b-muted{color:var(--ink-2);background:#f1ebdf}
+
+.alert-warn{color:var(--danger);font-weight:600;font-size:12.5px;display:inline-flex;gap:5px;align-items:center}
+.alert-ok{color:var(--ok);font-weight:600;font-size:13px}
+.cell-num{font-family:"IBM Plex Mono";font-weight:600}
+
+.act{font:inherit;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:#fff;
+  color:var(--ferro);padding:5px 11px;border-radius:7px;transition:all .14s}
+.act:hover{background:var(--ferro);border-color:var(--ferro);color:#fff}
+.yn-yes{color:var(--ok);font-weight:600}
+.yn-no{color:var(--ink-3)}
+
+/* confidence bar */
+.conf{display:flex;align-items:center;gap:8px}
+.conf .track{width:54px;height:6px;border-radius:4px;background:#eee3cf;overflow:hidden}
+.conf .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--tan),var(--ferro))}
+.conf .pct{font-family:"IBM Plex Mono";font-size:12px;font-weight:600;color:var(--ink)}
+
+/* ---------- map rail ---------- */
+.map{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;
+  position:sticky;top:90px}
+.map-head{padding:12px 15px;border-bottom:1px solid var(--line-2);display:flex;gap:9px;align-items:center;
+  background:linear-gradient(0deg,#fff,#fdf9f1)}
+.map-head .pin{width:24px;height:24px;border-radius:6px;background:var(--saddle);color:#f0e4cf;display:grid;place-items:center}
+.map-head b{font-family:"Oswald";font-weight:600;font-size:13px;letter-spacing:.4px}
+.map-head span{display:block;font-size:11px;color:var(--ink-2)}
+.map ol{margin:0;padding:8px 6px;list-style:none;counter-reset:m}
+.map li{counter-increment:m;display:flex;gap:11px;padding:9px 10px;border-radius:9px;font-size:12.5px;color:var(--ink-2);line-height:1.4}
+.map li:hover{background:#fbf7ef}
+.map li::before{content:counter(m);flex:0 0 auto;width:21px;height:21px;border-radius:6px;background:#f0e8d8;
+  color:var(--ferro);font-family:"Oswald";font-weight:600;font-size:11px;display:grid;place-items:center;margin-top:1px}
+
+.note{margin-top:16px;font-size:12.5px;color:var(--ink-2);background:#fdf6e9;border:1px dashed #e6cf9f;
+  border-radius:10px;padding:11px 14px;display:flex;gap:9px;align-items:flex-start}
+.note b{color:var(--ferro-2);font-family:"Oswald";font-weight:600;letter-spacing:.3px}
+
+/* flow strip */
+.flowstrip{display:flex;flex-wrap:wrap;gap:0;align-items:center;padding:14px 16px;background:#faf6ee;border-bottom:1px solid var(--line-2)}
+.fchip{font-family:"Oswald";font-weight:500;font-size:12px;letter-spacing:.4px;background:#fff;border:1px solid var(--line);
+  padding:6px 13px;border-radius:8px;color:var(--ink)}
+.farrow{color:var(--ink-3);margin:0 4px}
+
+/* ===== cover ===== */
+.cover{max-width:1080px;margin:0 auto}
+.hero{background:linear-gradient(150deg,var(--saddle) 0%,var(--saddle-2) 100%);color:#f1e6d3;border-radius:18px;
+  padding:42px 40px;position:relative;overflow:hidden;box-shadow:0 20px 50px -28px rgba(40,28,16,.7)}
+.hero::after{content:"";position:absolute;inset:0;background-image:radial-gradient(circle at 88% 12%,rgba(184,82,26,.30),transparent 42%);pointer-events:none}
+.hero-eye{font-family:"Oswald";font-weight:500;letter-spacing:3px;font-size:12px;text-transform:uppercase;color:var(--tan)}
+.hero h1{font-family:"Oswald";font-weight:700;font-size:clamp(30px,5vw,52px);line-height:1.02;margin:14px 0 0;letter-spacing:.5px;color:#fff;max-width:18ch}
+.hero h1 em{font-style:normal;color:var(--tan)}
+.hero p{max-width:62ch;color:#d8c8ad;font-size:15px;margin:16px 0 0}
+.hero-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.htag{font-family:"IBM Plex Mono";font-size:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);
+  padding:6px 11px;border-radius:8px;color:#ecdfc8}
+.hero-cta{margin-top:26px;display:flex;flex-wrap:wrap;gap:11px}
+.cover-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:22px}
+.pillar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.pillar .pn{width:34px;height:34px;border-radius:9px;background:var(--ferro);color:#fff;display:grid;place-items:center;
+  font-family:"Oswald";font-weight:700;margin-bottom:11px}
+.pillar h3{font-family:"Oswald";font-weight:600;font-size:15px;margin:0 0 5px;letter-spacing:.3px}
+.pillar p{margin:0;font-size:13px;color:var(--ink-2)}
+
+/* ===== flow map ===== */
+.flowmap{display:grid;gap:18px}
+.flowcard{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.flowcard-h{padding:13px 18px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:11px}
+.flowcard-h .tag{font-family:"Oswald";font-weight:600;font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  padding:4px 10px;border-radius:7px}
+.tag-nac{background:var(--process-bg);color:var(--process)}
+.tag-imp{background:var(--pc-bg);color:var(--pc)}
+.flowcard-h b{font-family:"Oswald";font-weight:600;font-size:15px}
+.flowcard-h span{font-size:12.5px;color:var(--ink-2)}
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:0;padding:20px 18px}
+.step{display:flex;align-items:center}
+.step .node{font-family:"Oswald";font-weight:500;font-size:13px;letter-spacing:.3px;background:#faf6ee;border:1px solid var(--line);
+  padding:9px 14px;border-radius:9px;color:var(--ink);white-space:nowrap}
+.step.start .node{background:var(--saddle);border-color:var(--saddle);color:#f1e6d3}
+.step.start.imp .node{background:var(--pc);border-color:var(--pc);color:#fff}
+.step.end .node{background:var(--ok-bg);border-color:#bfe0cb;color:var(--ok)}
+.step .arr{color:var(--ferro);margin:0 7px;font-size:16px}
+.flowcard .sub-row{padding:0 18px 18px;display:flex;flex-direction:column;gap:12px}
+.sub-row .lane{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.sub-row .lane-lab{font-family:"Oswald";font-weight:500;font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--ink-2);width:100%;margin-bottom:4px}
+
+/* ===== nf detail ===== */
+.nfhead{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px;margin-bottom:18px}
+.nfhead .top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.nfhead h2{font-family:"Oswald";font-weight:700;font-size:22px;margin:0;letter-spacing:.4px}
+.nfhead .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.timeline{display:flex;flex-wrap:wrap;align-items:center;gap:0;margin-top:18px;padding-top:16px;border-top:1px dashed var(--line)}
+.tl{display:flex;align-items:center}
+.tl .pt{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:62px}
+.tl .pt .ring{width:15px;height:15px;border-radius:50%;border:2px solid var(--line);background:#fff}
+.tl .pt.done .ring{background:var(--ok);border-color:var(--ok)}
+.tl .pt.now .ring{background:var(--ferro);border-color:var(--ferro);box-shadow:0 0 0 4px rgba(184,82,26,.18)}
+.tl .pt small{font-family:"Oswald";font-weight:500;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-2)}
+.tl .pt.done small,.tl .pt.now small{color:var(--ink)}
+.tl .seg{width:34px;height:2px;background:var(--line);margin-bottom:18px}
+.tl .seg.done{background:var(--ok)}
+.histbar{margin-top:16px;background:#faf6ee;border:1px solid var(--line);border-radius:11px;padding:12px 15px;font-size:12.5px;color:var(--ink-2)}
+.histbar b{font-family:"Oswald";font-weight:600;color:var(--ink);display:block;margin-bottom:5px;letter-spacing:.3px}
+.histbar .ev{display:inline-flex;gap:6px;align-items:baseline;margin-right:6px}
+.histbar .t{font-family:"IBM Plex Mono";color:var(--ferro-2);font-weight:600}
+
+/* fiscal actions */
+.actions{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px;border-bottom:1px solid var(--line-2);background:#faf6ee}
+.fa{font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);
+  padding:7px 13px;border-radius:8px;transition:all .14s}
+.fa:hover{border-color:var(--ferro);color:var(--ferro)}
+.fa.go{background:var(--ferro);border-color:var(--ferro);color:#fff}
+.fa.go:hover{background:var(--ferro-2)}
+.fa.warn{border-color:#e3c089;color:var(--amber)}
+
+/* MC chart */
+.chartwrap{padding:20px 18px}
+.legend{display:flex;gap:18px;justify-content:center;margin-top:10px;font-size:12.5px;color:var(--ink-2)}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:-1px}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--saddle);color:#f1e6d3;
+  padding:11px 18px;border-radius:11px;font-size:13px;box-shadow:0 14px 34px -14px rgba(0,0,0,.6);opacity:0;
+  transition:opacity .25s,transform .25s;z-index:80;display:flex;gap:9px;align-items:center;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast .dotc{width:7px;height:7px;border-radius:50%;background:var(--tan)}
+
+.scrim{display:none}
+
+@media (max-width:1100px){
+  .content{grid-template-columns:1fr}
+  .map{position:static}
+}
+@media (max-width:820px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;width:264px;transform:translateX(-100%);transition:transform .25s}
+  .side.open{transform:none}
+  .scrim{display:none;position:fixed;inset:0;background:rgba(30,20,10,.45);z-index:35}
+  .scrim.show{display:block}
+  .hamb{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:9px;border:1px solid var(--line);
+    background:#fff;cursor:pointer;flex:0 0 auto}
+  .topbar{padding:12px 16px;gap:10px}
+  .tb-title h1{font-size:18px}
+  .search{width:auto;flex:1;min-width:0}
+  .view{padding:18px 16px 50px}
+  .btn-period span{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+
+/* ===== login ===== */
+.login{position:fixed;inset:0;z-index:100;display:grid;grid-template-columns:1.05fr .95fr;background:var(--bran)}
+.login-brand{background:linear-gradient(150deg,var(--saddle),var(--saddle-2) 70%,var(--saddle-3));color:#f1e6d3;
+  padding:50px 54px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.login-brand::after{content:"";position:absolute;inset:0;background-image:radial-gradient(circle at 86% 18%,rgba(184,82,26,.32),transparent 46%);pointer-events:none}
+.lb-top{display:flex;gap:12px;align-items:center}
+.lb-eye{font-family:"Oswald";letter-spacing:3px;font-size:12px;text-transform:uppercase;color:var(--tan)}
+.lb-mid h1{font-family:"Oswald";font-weight:700;font-size:clamp(28px,3.6vw,46px);line-height:1.05;margin:0;max-width:16ch;color:#fff}
+.lb-mid h1 em{font-style:normal;color:var(--tan)}
+.lb-mid p{color:#d8c8ad;font-size:14.5px;max-width:46ch;margin-top:14px}
+.lb-flow{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px}
+.lb-flow span{font-family:"IBM Plex Mono";font-size:11.5px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);padding:5px 10px;border-radius:7px}
+.lb-foot{font-size:12px;color:#b8a585;position:relative;z-index:1}
+.login-panel{display:flex;align-items:center;justify-content:center;padding:40px;overflow-y:auto}
+.login-card{width:100%;max-width:382px}
+.login-card>.brand-mark{margin-bottom:16px}
+.login-card h2{font-family:"Oswald";font-weight:600;font-size:24px;margin:0;letter-spacing:.3px}
+.login-card .lc-sub{color:var(--ink-2);font-size:13.5px;margin:4px 0 22px}
+.fl{display:block;font-family:"Oswald";font-weight:500;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-2);margin:0 0 6px}
+.fi{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:14px;background:#fff;color:var(--ink);margin-bottom:15px;transition:border-color .15s,box-shadow .15s}
+.fi:focus{outline:0;border-color:var(--ferro);box-shadow:0 0 0 3px rgba(184,82,26,.12)}
+.role-pick{display:flex;flex-direction:column;gap:9px;margin:2px 0 20px}
+.role{display:flex;gap:12px;align-items:center;text-align:left;cursor:pointer;border:1px solid var(--line);background:#fff;
+  border-radius:11px;padding:11px 13px;font:inherit;transition:all .14s;width:100%}
+.role:hover{border-color:#d4c6ac}
+.role.sel{border-color:var(--ferro);box-shadow:0 0 0 3px rgba(184,82,26,.12);background:#fffdf9}
+.role .rs{width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:#1f160d;color:#cdb892;display:grid;place-items:center;font-family:"Oswald";font-weight:600;font-size:12px}
+.role.sel .rs{background:var(--ferro);color:#fff}
+.role .rt b{display:block;font-size:14px;font-family:"Oswald";font-weight:600;letter-spacing:.3px;color:var(--ink)}
+.role .rt span{font-size:12px;color:var(--ink-2)}
+.role .chk{margin-left:auto;color:var(--ferro);opacity:0;flex:0 0 auto}
+.role.sel .chk{opacity:1}
+.login-go{width:100%;justify-content:center;padding:12px;font-size:14.5px;font-family:"Oswald";font-weight:500;letter-spacing:.6px}
+.login-err{display:none;background:var(--danger-bg);color:var(--danger);border:1px solid #f0c4bf;border-radius:9px;padding:9px 12px;font-size:12.5px;margin-bottom:13px}
+.login-err.show{display:block}
+.lc-hint{margin:16px 0 0;font-size:12px;color:var(--ink-3);line-height:1.65;text-align:center}
+.lc-hint b{color:var(--ink-2);font-weight:600}
+.lc-hint code{font-family:"IBM Plex Mono";font-size:11.5px;background:#f0e8d8;color:var(--ferro-2);padding:1px 6px;border-radius:5px}
+.login-card.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.logout{margin-left:auto;background:transparent;border:0;color:#b8a585;cursor:pointer;font:inherit;font-size:12px;
+  display:inline-flex;gap:5px;align-items:center;padding:7px;border-radius:7px;transition:color .15s,background .15s;flex:0 0 auto}
+.logout:hover{color:#f1e6d3;background:rgba(233,221,202,.10)}
+@media (max-width:760px){
+  .login{grid-template-columns:1fr}
+  .login-brand{display:none}
+  .login-panel{padding:30px 20px}
+}
+
+/* ===== firebase status / modal ===== */
+.livepill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;font-family:"Oswald";
+  letter-spacing:.6px;padding:6px 11px;border-radius:20px;border:1px solid var(--line);background:#fff;color:var(--ink-2);flex:0 0 auto}
+.livepill::before{content:"";width:7px;height:7px;border-radius:50%;background:#b7a890}
+.livepill.on{color:var(--ok);border-color:#bfe0cb;background:var(--ok-bg)}
+.livepill.on::before{background:var(--ok);box-shadow:0 0 0 0 rgba(47,125,79,.5);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,125,79,.5)}70%{box-shadow:0 0 0 6px rgba(47,125,79,0)}100%{box-shadow:0 0 0 0 rgba(47,125,79,0)}}
+.demobar{display:none;position:fixed;bottom:18px;left:18px;z-index:70;background:#fff;border:1px solid #e6cf9f;
+  border-radius:11px;padding:9px 13px;font-size:12px;color:var(--ink-2);box-shadow:var(--shadow);gap:9px;align-items:center;max-width:300px}
+.demobar b{color:var(--ferro-2);font-family:"Oswald";font-weight:600}
+.modal-bg{display:none;position:fixed;inset:0;z-index:90;background:rgba(40,28,16,.5);align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:400px;padding:24px;box-shadow:0 30px 70px -28px rgba(40,28,16,.7);animation:fade .25s both}
+.modal h3{font-family:"Oswald";font-weight:600;font-size:20px;margin:0 0 16px;letter-spacing:.3px}
+.modal-act{display:flex;gap:9px;justify-content:flex-end;margin-top:8px}
+.lc-switch{margin:14px 0 0;font-size:13px;color:var(--ink-2);text-align:center}
+.lc-switch a{color:var(--ferro);font-weight:600;cursor:pointer;text-decoration:none}
+.lc-switch a:hover{text-decoration:underline}
+.em-note{font-size:12px;color:var(--ink-2);margin:0 0 10px}
+.pagegrid{max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:11px;padding:8px;margin-bottom:16px;background:#fdfaf3}
+.pg-grp{font-family:"Oswald";font-weight:500;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink-3);padding:9px 6px 4px}
+.pg-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--ink)}
+.pg-item:hover{background:#fff}
+.pg-item input{width:16px;height:16px;accent-color:var(--ferro);flex:0 0 auto;cursor:pointer}
+.pg-sig{font-family:"Oswald";font-weight:600;font-size:10px;width:24px;height:20px;display:grid;place-items:center;border-radius:5px;background:#1f160d;color:#cdb892;flex:0 0 auto}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<!-- ============ LOGIN ============ -->
+<div class="login" id="login">
+  <div class="login-brand">
+    <div class="lb-top">
+      <div class="brand-mark">TX</div>
+      <div class="lb-eye">Texas Center · Texas Flow</div>
+    </div>
+    <div class="lb-mid">
+      <h1>A <em>Nota Fiscal</em> no centro de toda a operação.</h1>
+      <p>Gestão de recebimento, cadastro e publicação de produtos. Da Expedição ao Site, com acesso por perfil.</p>
+      <div class="lb-flow">
+        <span>NF como centro</span><span>Nacional + Importado</span><span>Acesso por perfil</span>
+      </div>
+    </div>
+    <div class="lb-foot">Versão visual · Wireframe navegável</div>
+  </div>
+  <div class="login-panel">
+    <div class="login-card">
+      <div class="brand-mark">TX</div>
+
+      <div id="pane-login">
+        <h2>Entrar no Texas Flow</h2>
+        <p class="lc-sub">Acesse com seu e-mail e senha.</p>
+        <label class="fl" for="lg-user">E-mail</label>
+        <input class="fi" id="lg-user" type="email" placeholder="seu@email.com.br" autocomplete="username">
+        <label class="fl" for="lg-pass">Senha</label>
+        <input class="fi" id="lg-pass" type="password" placeholder="••••••" autocomplete="current-password">
+        <div class="login-err" id="login-err"></div>
+        <button class="btn btn-primary login-go" id="login-go" type="button">Entrar →</button>
+        <p class="lc-switch">Não tem conta? <a id="to-signup" tabindex="0">Criar conta</a></p>
+        <p class="lc-hint" id="demo-hint">Modo demonstração — senha <code>texasflow</code>:<br>
+          <b>rayllan</b> (ADM) · <b>davi.nascimento</b> (Super ADM) · <b>joao</b> (comum)</p>
+      </div>
+
+      <div id="pane-signup" style="display:none">
+        <h2>Criar conta</h2>
+        <p class="lc-sub">Toda conta nova entra como <b>usuário comum</b>. O administrador libera as páginas depois.</p>
+        <label class="fl" for="su-name">Nome</label>
+        <input class="fi" id="su-name" type="text" placeholder="Seu nome">
+        <label class="fl" for="su-email">E-mail</label>
+        <input class="fi" id="su-email" type="email" placeholder="seu@email.com.br">
+        <label class="fl" for="su-pass">Senha</label>
+        <input class="fi" id="su-pass" type="password" placeholder="mínimo 6 caracteres">
+        <div class="login-err" id="signup-err"></div>
+        <button class="btn btn-primary login-go" id="signup-go" type="button">Criar conta →</button>
+        <p class="lc-switch">Já tem conta? <a id="to-login" tabindex="0">Entrar</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="shell" id="shell" style="display:none">
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="brand-mark">TX</div>
+      <div class="brand-txt"><b>Texas Flow</b><span>Cadastro de Produtos</span></div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-user" id="side-user"></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamb" id="hamb" aria-label="Abrir menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a2a1c" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="tb-title">
+        <div class="eyebrow" id="eyebrow">Texas Center</div>
+        <h1 id="title">Visão geral</h1>
+        <p id="subtitle"></p>
+      </div>
+      <div class="tb-tools">
+        <span class="livepill" id="livepill" title="Estado da sincronização">Local</span>
+        <label class="search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9c8f7d" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+          <input id="search" type="text" placeholder="Pesquisar..." autocomplete="off">
+        </label>
+        <select class="btn btn-period" id="period">
+          <option>Hoje</option><option>Semana</option><option>Mês</option><option>Ano</option><option>Personalizado</option>
+        </select>
+        <button class="btn btn-primary" id="export">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+          <span>Exportar</span>
+        </button>
+      </div>
+    </header>
+    <div class="scroll"><main class="view" id="view"></main></div>
+  </div>
+</div>
+<div class="toast" id="toast"><span class="dotc"></span><span id="toast-msg"></span></div>
+<div class="demobar" id="demobar">
+  <span><b>Modo demonstração</b> — dados locais, sem sincronização. Configure o Firebase para salvar e sincronizar entre computadores.</span>
+</div>
+<div class="modal-bg" id="user-modal">
+  <div class="modal">
+    <h3>Novo usuário</h3>
+    <label class="fl" for="nu-name">Nome</label>
+    <input class="fi" id="nu-name" type="text" placeholder="Nome completo">
+    <label class="fl" for="nu-login">Login / e-mail</label>
+    <input class="fi" id="nu-login" type="text" placeholder="ex.: maria@texascenter.com.br">
+    <label class="fl" for="nu-role">Perfil inicial</label>
+    <select class="fi" id="nu-role">
+      <option value="comum">Usuário comum (libere as páginas depois)</option>
+      <option value="operador">Operador</option>
+      <option value="fiscal">Fiscal</option>
+      <option value="compras">Compras</option>
+      <option value="gestor">Administrador — acesso total</option>
+      <option value="superadm">Super Admin — só usuários</option>
+    </select>
+    <label class="fl" for="nu-pass">Senha provisória</label>
+    <input class="fi" id="nu-pass" type="text" value="texasflow">
+    <div class="modal-act">
+      <button class="btn" id="nu-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="nu-save" type="button">Criar usuário</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="edit-modal">
+  <div class="modal" style="max-width:470px">
+    <h3 id="em-title">Acesso do usuário</h3>
+    <label class="fl" for="em-role">Perfil</label>
+    <select class="fi" id="em-role">
+      <option value="comum">Usuário comum</option>
+      <option value="operador">Operador</option>
+      <option value="fiscal">Fiscal</option>
+      <option value="compras">Compras</option>
+      <option value="gestor">Administrador — acesso total</option>
+      <option value="superadm">Super Admin — só usuários</option>
+    </select>
+    <label class="fl" id="em-pages-label">Páginas liberadas</label>
+    <p class="em-note" id="em-pages-note">Marque as páginas que este usuário poderá acessar.</p>
+    <div class="pagegrid" id="em-pages"></div>
+    <div class="modal-act">
+      <button class="btn" id="em-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="em-save" type="button">Salvar acesso</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================ DATA ============================================================ */
+const NAV = [
+  {grp:"Visão",   items:[
+    {id:"cover", sig:"TX", name:"Visão geral"},
+    {id:"flow",  sig:"FX", name:"Mapa de fluxos"},
+  ]},
+  {grp:"Filas",   items:[
+    {id:"fg", sig:"FG", name:"Fila Geral"},
+    {id:"pc", sig:"PC", name:"Pedidos Compra"},
+    {id:"nf", sig:"NF", name:"Notas Fiscais"},
+    {id:"vn", sig:"VN", name:"Vinculados"},
+  ]},
+  {grp:"Recebimento", items:[
+    {id:"ex", sig:"EX", name:"Conferência"},
+    {id:"dv", sig:"DV", name:"Divergências"},
+    {id:"fi", sig:"FI", name:"Fiscal"},
+    {id:"co", sig:"CO", name:"Compras"},
+  ]},
+  {grp:"Cadastro & Saída", items:[
+    {id:"er", sig:"ER", name:"Cadastro ERP"},
+    {id:"st", sig:"ST", name:"Cadastro Site"},
+    {id:"ft", sig:"FT", name:"Fotos"},
+    {id:"et", sig:"ET", name:"Etiquetagem"},
+    {id:"cr", sig:"CR", name:"Correções"},
+  ]},
+  {grp:"Gestão", items:[
+    {id:"op", sig:"OP", name:"Operacional"},
+    {id:"pr", sig:"PR", name:"Produtividade"},
+    {id:"ql", sig:"QL", name:"Qualidade"},
+    {id:"mc", sig:"MC", name:"Melhoria"},
+    {id:"rl", sig:"RL", name:"Relatórios"},
+    {id:"lg", sig:"LG", name:"Logs"},
+    {id:"cf", sig:"CF", name:"Configurações"},
+  ]},
+  {grp:"Administração", items:[
+    {id:"usuarios", sig:"US", name:"Usuários"},
+  ]},
+];
+
+// column types: text | mono | grade | badge | alert | conf | money | trend | impact | yn | act
+const SCREENS = {
+  fg:{
+    eyebrow:"Filas", title:"Fila Geral", subtitle:"Visão central por NF, PC e Vinculados",
+    kpis:[
+      {val:"28",lab:"Em andamento",sub:"todas as etapas",tone:"process"},
+      {val:"5", lab:"Divergências",sub:"abertas",tone:"danger"},
+      {val:"3", lab:"Atrasadas",sub:"tempo parado",tone:"amber"},
+      {val:"14",lab:"Concluídas",sub:"hoje",tone:"ok"},
+    ],
+    filters:["Todos","Pedidos de Compra","Notas Fiscais","Vinculados"],
+    cols:[{k:"Tipo",t:"badge"},{k:"Número",t:"mono"},{k:"Fornecedor",t:"text"},{k:"Status",t:"badge"},{k:"Responsável",t:"text"},{k:"Alertas",t:"alert"}],
+    rows:[
+      ["Vinculado","PC1025 + NF7522","Goyazes","Cadastro ERP","Ana","⚠ 2"],
+      ["NF","7527","Resistol","Fiscal","Zé",""],
+      ["PC","1030","Ariat","Pré-cadastro","Cadastro",""],
+      ["Vinculado","PC1040 + NF7532","TXC","Etiquetagem","Expedição","✓"],
+      ["NF","7535","Fornecedor X","Cadastro Site","Kaio","Adiado"],
+    ],
+    rowFilter:r=>({"Pedidos de Compra":r[0]==="PC","Notas Fiscais":r[0]==="NF","Vinculados":r[0]==="Vinculado"}),
+    openDetail:true,
+    map:["Cards mostram volume em andamento, divergências, atrasos e concluídos.",
+         "Filtros rápidos separam Todos, PC, NF e Vinculados.",
+         "Cada linha representa uma NF, um PC ou um vínculo PC + NF.",
+         "Alertas destacam divergência, adiamento, atraso ou conclusão.",
+         "Clique na linha abre o detalhe com produtos, histórico e responsáveis."],
+    note:"A NF é o centro da operação. Produtos ficam dentro da nota.",
+  },
+  pc:{
+    eyebrow:"Filas", title:"Pedido de Compra", subtitle:"Pré-cadastro e importados",
+    kpis:[
+      {val:"12",lab:"Aguardando NF",sub:"importados",tone:"pc"},
+      {val:"8", lab:"Pré-cadastro",sub:"em andamento",tone:"process"},
+      {val:"3", lab:"Com NF sugerida",sub:"vínculo provável",tone:"ok"},
+    ],
+    info:{b:"Importação do PC.",t:"Compras sobe o Pedido de Compra. A IA extrai fornecedor, CNPJ, referências, quantidades e valores para gerar pré-cadastro."},
+    cols:[{k:"PC",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Ação",t:"act"}],
+    rows:[
+      ["1025","Goyazes","00.000.000/0001-00","84","Pré-cadastro","Abrir"],
+      ["1030","Ariat","11.111.111/0001-00","36","Aguardando NF","Vincular"],
+      ["1031","Resistol","22.222.222/0001-00","58","Com NF sugerida","Confirmar"],
+    ],
+    map:["PC é a sigla oficial para Pedido de Compra no sistema.",
+         "PC pode gerar pré-cadastro antes da mercadoria chegar.",
+         "Quando a NF chega, o sistema sugere vínculo por CNPJ, fornecedor, referências e quantidades.",
+         "PC não deve gerar duplicidade de cadastro quando a NF chegar.",
+         "Cor roxa identifica origem por Pedido de Compra."],
+  },
+  nf:{
+    eyebrow:"Filas", title:"Notas Fiscais", subtitle:"Importação, conferência e status",
+    kpis:[
+      {val:"4", lab:"Aguardando vínculo",sub:"com PC",tone:"warn"},
+      {val:"16",lab:"Conferidas",sub:"sem pendência",tone:"ok"},
+      {val:"5", lab:"Com divergência",sub:"precisam fiscal",tone:"danger"},
+    ],
+    info:{b:"Importação da NF.",t:"A IA extrai dados da NF: número, fornecedor, CNPJ, produtos, referência, descrição, cor, tamanho, quantidade, valores e impostos."},
+    cols:[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Alertas",t:"alert"}],
+    rows:[
+      ["7522","Goyazes","00.000.000/0001-00","84","Cadastro ERP","⚠ 2 diverg."],
+      ["7527","Resistol","22.222.222/0001-00","58","Fiscal","Aguardando"],
+      ["7530","TXC","33.333.333/0001-00","120","Conferência",""],
+      ["7535","Fornecedor X","44.444.444/0001-00","36","Site","Adiado"],
+    ],
+    openDetail:true,
+    map:["NF pode existir sem PC, especialmente em compra nacional.",
+         "NF importada fica visível para todos conforme permissões.",
+         "Status mostra onde a nota está no processo.",
+         "Alertas mostram divergência, atraso, adiado ou bloqueios.",
+         "Ao abrir a NF, os produtos aparecem em grade por referência, cor e tamanho."],
+  },
+  vn:{
+    eyebrow:"Filas", title:"Vinculados", subtitle:"Controle após vínculo fiscal",
+    kpis:[
+      {val:"18",lab:"Vínculos ativos",sub:"PC + NF",tone:"process"},
+      {val:"4", lab:"Com divergência",sub:"abertas",tone:"danger"},
+      {val:"9", lab:"Prontos ERP",sub:"liberados",tone:"ok"},
+    ],
+    flow:["PC","NF","Vincular","Conferência","Fiscal","ERP"],
+    cols:[{k:"Vínculo",t:"mono"},{k:"Fornecedor",t:"text"},{k:"Confiança",t:"conf"},{k:"Status",t:"badge"},{k:"Diverg.",t:"text"},{k:"Ação",t:"act"}],
+    rows:[
+      ["PC1025 + NF7522","Goyazes","97%","Conferência","2","Abrir"],
+      ["PC1030 + NF7530","Ariat","92%","Fiscal","0","Abrir"],
+      ["PC1040 + NF7532","Resistol","88%","Ajustar vínculo","1","Revisar"],
+    ],
+    map:["Mostra PC e NF depois da confirmação do Fiscal.",
+         "Confiança indica quanto a IA encontrou correspondência entre PC e NF.",
+         "Mesmo após vinculado, o Fiscal pode alterar ou remover vínculo.",
+         "Divergências aparecem por produto dentro do vínculo.",
+         "Evita duplicidade entre pré-cadastro e cadastro da NF."],
+    note:"A aba Vinculados é essencial para importados.",
+  },
+  ex:{
+    eyebrow:"Recebimento", title:"Recebimento e Conferência", subtitle:"Expedição — o que chegou fisicamente",
+    kpis:[
+      {val:"6", lab:"NFs pendentes",sub:"para conferir",tone:"warn"},
+      {val:"284",lab:"Itens conferidos",sub:"hoje",tone:"ok"},
+      {val:"5", lab:"Divergências",sub:"detectadas",tone:"danger"},
+    ],
+    info:{b:"Responsáveis da Expedição.",t:"Usuário compartilhado: Expedição — Conferentes: Gabriel Silva, João."},
+    cols:[{k:"Ref NF",t:"mono"},{k:"Ref Conferida",t:"mono"},{k:"Descrição",t:"text"},{k:"Cor",t:"text"},{k:"Tam",t:"mono"},{k:"Qtd NF",t:"text"},{k:"Qtd Receb.",t:"text"},{k:"Obs",t:"text"}],
+    rows:[
+      ["263208-CP","263208-CF","Bota Goyazes Atlanta","Café","38","10","10","troca"],
+      ["263209-CF","263209-CF","Bota Dallas","Preto","39","8","7","faltou 1"],
+      ["241502-AC","241502-AC","Bota Avestruz","Caramelo","40","1","1",""],
+    ],
+    extraBtn:{label:"Ver divergências inteligentes",go:"dv"},
+    map:["Expedição informa o que realmente chegou.",
+         "Campos editáveis: referência conferida, descrição, cor, tamanho, quantidade recebida e observação.",
+         "Custo, NCM e impostos não são editados aqui.",
+         "Sistema compara NF x conferência e gera divergências automaticamente.",
+         "Mesmo computador pode registrar múltiplos conferentes dentro da NF."],
+  },
+  dv:{
+    eyebrow:"Recebimento", title:"Divergências Inteligentes", subtitle:"Sugestões entre NF, conferência e PC",
+    kpis:[
+      {val:"2",lab:"Não encontrados",sub:"na conferência",tone:"danger"},
+      {val:"2",lab:"Extras",sub:"sem correspondência",tone:"amber"},
+      {val:"2",lab:"Sugestões IA",sub:"alta confiança",tone:"ok"},
+    ],
+    info:{b:"Possível troca de referência.",t:"NF: 263208-CP — Conferência: 263208-CF. Motivos: mesma quantidade, descrição semelhante, mesmo fornecedor e custo compatível."},
+    cols:[{k:"Produto NF",t:"mono"},{k:"Produto Conferido",t:"mono"},{k:"Confiança",t:"conf"},{k:"Motivos",t:"text"},{k:"Status",t:"badge"}],
+    rows:[
+      ["263208-CP","263208-CF","95%","Qtd igual, descrição similar","Em análise"],
+      ["263209-CP","263209-CF","91%","Qtd igual, custo similar","Fornecedor"],
+      ["241502-AC","—","—","Não veio na caixa","Aberta"],
+    ],
+    map:["Sistema aponta o que estava na NF e não foi encontrado.",
+         "Sistema aponta o que foi recebido sem correspondência na NF.",
+         "IA sugere possíveis trocas, mas não decide sozinha.",
+         "Fiscal decide o fluxo e Compras acompanha fornecedor.",
+         "Histórico mantém NF original e produto recebido."],
+  },
+  fi:{
+    eyebrow:"Recebimento", title:"Tela do Fiscal", subtitle:"Vínculo, divergências, entrada e liberação",
+    nfHead:{nf:"NF 7522 — Goyazes",meta:"PC vinculado: PC 1025 — Conferência concluída — 2 divergências abertas"},
+    actions:[
+      {l:"Vincular PC"},{l:"Alterar vínculo"},{l:"Liberar cadastro",cls:"go"},
+      {l:"Devolver conferência",cls:"warn"},{l:"Devolver cadastro",cls:"warn"},
+      {l:"Aguardar fornecedor",cls:"warn"},{l:"Divergência resolvida"},{l:"Liberar loja",cls:"go"},
+    ],
+    cols:[{k:"Produto",t:"text"},{k:"NF",t:"mono"},{k:"Conferência",t:"mono"},{k:"Decisão",t:"badge"},{k:"Obs Fiscal",t:"text"}],
+    rows:[
+      ["Bota Atlanta","263208-CP","263208-CF","Liberar cadastro","Tratar com compras"],
+      ["Bota Dallas","263209-CP","263209-CF","Aguardar fornecedor","Confirmar correção"],
+      ["Bota Avestruz","241502-AC","241502-AC","OK","Entrada normal"],
+    ],
+    map:["Fiscal vê todas as NFs e PCs, mas não é o administrador do sistema.",
+         "Pode vincular, alterar ou remover vínculo PC x NF.",
+         "Pode liberar cadastro mesmo com divergência aberta.",
+         "Pode devolver para Conferência ou Cadastro com motivo obrigatório.",
+         "Pode liberar loja após ERP e etiquetagem."],
+    note:"Gestor/Master tem acesso completo de administração.",
+  },
+  co:{
+    eyebrow:"Recebimento", title:"Compras", subtitle:"Tratativas com fornecedor",
+    kpis:[
+      {val:"7",lab:"Pendências abertas",sub:"fornecedores",tone:"danger"},
+      {val:"18",lab:"Resolvidas no mês",sub:"com histórico",tone:"ok"},
+      {val:"3",unit:"dias",lab:"Tempo médio",sub:"resolução",tone:"process"},
+    ],
+    info:{b:"Ações.",t:"Comentar, anexar PC, anexar retorno do fornecedor, atualizar status da tratativa."},
+    cols:[{k:"Fornecedor",t:"text"},{k:"NF/PC",t:"mono"},{k:"Problema",t:"text"},{k:"Status",t:"badge"},{k:"Responsável",t:"text"},{k:"Anexo",t:"yn"}],
+    rows:[
+      ["Goyazes","NF7522","Referência trocada","Aguardando fornecedor","Maria","sim"],
+      ["Resistol","PC1031","Preço divergente","Resolvido","Compras","sim"],
+      ["Ariat","NF7530","Quantidade menor","Em negociação","Maria","não"],
+    ],
+    map:["Compras acompanha divergências e fala com fornecedor.",
+         "Não altera cadastro de produto.",
+         "Pode comentar e anexar documentos.",
+         "Status de tratativa alimenta Qualidade e Melhoria Contínua.",
+         "Fornecedores com maior divergência viram ranking gerencial."],
+  },
+  er:{
+    eyebrow:"Cadastro", title:"Cadastro ERP", subtitle:"Grade, custos, impostos e formação de preço",
+    kpis:[
+      {val:"84",lab:"Produtos NF",sub:"dentro da nota",tone:"process"},
+      {val:"12",lab:"Revisão de preço",sub:"histórico",tone:"warn"},
+      {val:"22",lab:"Novos",sub:"cadastro",tone:"ok"},
+    ],
+    info:{b:"Ações em lote.",t:"Aplicar multiplicador 2.5x / 3.5x / 4.0x, ratear frete, aplicar desconto e impostos."},
+    cols:[{k:"Ref",t:"mono"},{k:"Descrição",t:"text"},{k:"Grade",t:"grade"},{k:"NCM",t:"mono"},{k:"ICMS",t:"text"},{k:"IPI",t:"text"},{k:"Custo",t:"money"},{k:"Venda",t:"money"},{k:"Ação",t:"badge"}],
+    rows:[
+      ["263208-CF","Bota Goyazes Atlanta Café","34(1) 35(2) 36(3)","64051010","19%","0%","R$ 450,00","R$ 899,90","OK"],
+      ["29629L","Camisa TXC Worker","P(2) M(3) G(2)","62052000","19%","5%","R$ 120,00","R$ 329,90","Rev"],
+      ["REF123-PL","Camisa Plus Size","GG(1) 2XG(1)","62052000","19%","5%","R$ 130,00","R$ 359,90","Novo"],
+    ],
+    map:["Tela compacta em formato de planilha por NF.",
+         "Mostra descrição, grade, NCM, ICMS, IPI, custo, frete, desconto e venda.",
+         "Permite revisar preço usando histórico dos últimos preços.",
+         "Permite aplicar multiplicador e cálculo de custo final em lote.",
+         "Ao concluir ERP, pode liberar para etiquetagem e mandar para fila Site."],
+  },
+  st:{
+    eyebrow:"Cadastro", title:"Cadastro Site", subtitle:"Descrição, SEO, fotos e publicação",
+    kpis:[
+      {val:"36",lab:"Aguardando",sub:"site",tone:"warn"},
+      {val:"8", lab:"Em andamento",sub:"cadastradores",tone:"process"},
+      {val:"5", lab:"Adiados",sub:"fila própria",tone:"amber"},
+    ],
+    info:{b:"Produto: 263208-CF — Bota Goyazes Atlanta.",t:"Campos: descrição IA, título SEO, meta description, fotos, tabela de medidas quando aplicável, categoria e publicação."},
+    cols:[{k:"Ref",t:"mono"},{k:"Fotos",t:"text"},{k:"Descrição",t:"badge"},{k:"SEO",t:"badge"},{k:"Tabela",t:"text"},{k:"Status",t:"badge"},{k:"Motivo",t:"text"}],
+    rows:[
+      ["263208-CF","4","OK","OK","N/A","Publicado",""],
+      ["29629L","2","OK","OK","Sim","Em andamento",""],
+      ["CAL123","1","Pendente","Pendente","Sim","Adiado","Prioridade loja"],
+    ],
+    map:["Quem faz o cadastro no site também publica.",
+         "Sem etapa formal de revisão por enquanto.",
+         "Descrição pode ser feita por IA, mas o cadastrador finaliza e publica.",
+         "Produtos podem ficar adiados em fila própria com motivo.",
+         "Loja pode andar antes do site quando houver liberação."],
+  },
+  ft:{
+    eyebrow:"Cadastro", title:"Fotografias", subtitle:"Cronometragem e quantidade produzida",
+    kpis:[
+      {val:"430",lab:"Fotos realizadas",sub:"mês atual",tone:"process"},
+      {val:"2m18s",lab:"Tempo foto",sub:"média por foto",tone:"ok"},
+      {val:"3m05s",lab:"Tempo edição",sub:"média por foto",tone:"amber"},
+    ],
+    info:{b:"Cronômetro por atividade.",t:"Ao clicar em Fotografar, o tempo de Site pausa e começa o tempo de Fotografia. Ao finalizar, volta para o fluxo de cadastro."},
+    cols:[{k:"Produto",t:"text"},{k:"Usuário",t:"text"},{k:"Fotos",t:"text"},{k:"Tempo Foto",t:"mono"},{k:"Tempo Edição",t:"mono"},{k:"Status",t:"badge"},{k:"Ação",t:"act"}],
+    rows:[
+      ["Bota Atlanta","Ana","6","18min","22min","Concluído","Ver fotos"],
+      ["Camisa Worker","Kaio","2","5min","7min","Site","Continuar"],
+      ["Sela Couro","João","8","36min","45min","Editando","Finalizar"],
+    ],
+    map:["Não existe quantidade obrigatória de fotos no sistema.",
+         "Sistema registra quantas fotos foram feitas, sem marcar pendência automática.",
+         "Tempo de fotografia e edição fica separado do tempo de cadastro.",
+         "Ajuda a explicar produtividade menor quando houve muita foto/edição.",
+         "Dados alimentam Produtividade e Melhoria Contínua."],
+  },
+  et:{
+    eyebrow:"Cadastro", title:"Etiquetagem", subtitle:"Expedição — etiqueta, referência final e liberação de loja",
+    kpis:[
+      {val:"9", lab:"Aguardando etiqueta",sub:"NFs",tone:"warn"},
+      {val:"1.520",lab:"Etiquetas feitas",sub:"mês",tone:"ok"},
+      {val:"4", lab:"Aguardando loja",sub:"fiscal liberar",tone:"amber"},
+    ],
+    cols:[{k:"NF",t:"mono"},{k:"Produto",t:"text"},{k:"Ref NF",t:"mono"},{k:"Ref Final",t:"mono"},{k:"Preço Venda",t:"money"},{k:"Status",t:"badge"},{k:"Resp.",t:"text"}],
+    rows:[
+      ["7522","Bota Goyazes Atlanta","263208-CP","263208-CF","R$ 899,90","Etiquetar","Gabriel"],
+      ["7522","Bota Dallas","263209-CP","263209-CF","R$ 849,90","Divergência","Gabriel"],
+      ["7530","Camisa TXC","29629L","29629L","R$ 329,90","Loja liberada","João"],
+    ],
+    map:["Expedição etiqueta produto por produto, mas pode assumir NF inteira.",
+         "Mostra referência da NF e referência final para evitar etiqueta errada.",
+         "Pode haver mais de um responsável na mesma NF usando usuário compartilhado.",
+         "Preço de venda e custo podem ser visíveis para ajudar conferência e identificação.",
+         "Após etiquetar, a loja depende de liberação fiscal quando aplicável."],
+  },
+  cr:{
+    eyebrow:"Cadastro", title:"Correções e Retrabalho", subtitle:"Histórico de produtos revisitados",
+    kpis:[
+      {val:"25",lab:"Retrabalhos",sub:"mês",tone:"danger"},
+      {val:"95%",lab:"Acerto 1ª entrega",sub:"mês",tone:"ok"},
+      {val:"5%",lab:"Taxa de retrabalho",sub:"mês",tone:"amber"},
+    ],
+    info:{b:"Solicitar correção.",t:"Pesquisar produto por referência, registrar motivo, responsável, antes/depois e tempo gasto. Tudo vira log."},
+    cols:[{k:"Produto",t:"mono"},{k:"Motivo",t:"text"},{k:"Solicitante",t:"text"},{k:"Responsável",t:"text"},{k:"Antes",t:"text"},{k:"Depois",t:"text"},{k:"Tempo",t:"mono"}],
+    rows:[
+      ["29629L","Tabela de medidas","Rayllan","Ana","Sem tabela","Tabela incluída","8min"],
+      ["263208-CF","Cor","Cadastro","Kaio","Café","Pinhão","6min"],
+      ["CAL123","Fotos","Gestor","João","1 foto","4 fotos","18min"],
+    ],
+    map:["Correção registra produto revisitado após entrega inicial.",
+         "Todo retrabalho conta para taxa de retrabalho.",
+         "Não usa leve/médio/grave: se voltou, é retrabalho.",
+         "Motivo ajuda a entender falhas recorrentes.",
+         "Relatório cruza tempo médio com retrabalho por colaborador."],
+  },
+  op:{
+    eyebrow:"Gestão", title:"Painel Operacional", subtitle:"O que está acontecendo agora",
+    kpis:[
+      {val:"28",lab:"NFs em andamento",sub:"",tone:"process"},
+      {val:"6", lab:"Aguardando fiscal",sub:"",tone:"warn"},
+      {val:"9", lab:"Cadastro ERP",sub:"",tone:"process"},
+      {val:"12",lab:"Cadastro Site",sub:"",tone:"process"},
+      {val:"4", lab:"Expedição",sub:"",tone:"ok"},
+      {val:"5", lab:"Divergências",sub:"",tone:"danger"},
+    ],
+    cols:[{k:"Etapa",t:"text"},{k:"NFs",t:"text"},{k:"Tempo Médio",t:"mono"},{k:"Mais Antiga",t:"mono"},{k:"Responsável",t:"text"},{k:"Ação",t:"act"}],
+    rows:[
+      ["Fiscal","6","1h20","NF7527","Zé","Abrir"],
+      ["Cadastro ERP","9","4h10","NF7522","Ana","Abrir"],
+      ["Site","12","2d","NF7518","Cadastro","Ver"],
+      ["Expedição","4","45min","NF7530","Gabriel","Abrir"],
+    ],
+    map:["Mostra situação atual da operação.",
+         "Clique nos indicadores abre a lista filtrada.",
+         "Permite identificar fila parada e responsável atual.",
+         "Não é relatório histórico; é painel de acompanhamento do dia.",
+         "Serve para reunião rápida e cobrança operacional."],
+  },
+  pr:{
+    eyebrow:"Gestão", title:"Produtividade", subtitle:"Tempo, volume, fotos e retrabalho por colaborador",
+    kpis:[
+      {val:"11m45s",lab:"Tempo médio produto",sub:"mês",tone:"process"},
+      {val:"95%",lab:"Acerto 1ª entrega",sub:"equipe",tone:"ok"},
+      {val:"5%",lab:"Taxa de retrabalho",sub:"equipe",tone:"amber"},
+      {val:"430",lab:"Fotos no mês",sub:"produzidas",tone:"process"},
+    ],
+    cols:[{k:"Usuário",t:"text"},{k:"Setor",t:"text"},{k:"ERP",t:"text"},{k:"Site",t:"text"},{k:"Fotos",t:"text"},{k:"Tempo Médio",t:"mono"},{k:"Acerto",t:"text"},{k:"Retrabalho",t:"text"}],
+    rows:[
+      ["Ana","Cadastro","500","420","180","8min","95%","5%"],
+      ["Kaio","Cadastro","450","390","90","7min","92%","8%"],
+      ["Gabriel","Expedição","—","—","—","Confer. 42 NF","—","—"],
+      ["Zé","Fiscal","95 NF","—","—","14min/NF","—","—"],
+    ],
+    map:["Mede tempo e volume por usuário e setor.",
+         "Cadastro separa ERP, Site, Fotografia e Edição.",
+         "Expedição mede conferência e etiquetagem.",
+         "Fiscal mede NFs analisadas e tempo médio.",
+         "Cruza velocidade com retrabalho para evitar cadastro feito às pressas."],
+  },
+  ql:{
+    eyebrow:"Gestão", title:"Qualidade", subtitle:"Erros, divergências e gargalos",
+    kpis:[
+      {val:"3", lab:"Fornec. críticos",sub:"alto erro",tone:"danger"},
+      {val:"42",lab:"Divergências",sub:"mês",tone:"amber"},
+      {val:"25",lab:"Retrabalhos",sub:"mês",tone:"danger"},
+      {val:"2d 4h",lab:"Tempo parado",sub:"média maior",tone:"warn"},
+    ],
+    cols:[{k:"Fornecedor/Origem",t:"text"},{k:"Tipo",t:"text"},{k:"Ocorrências",t:"text"},{k:"Impacto",t:"impact"},{k:"Tempo Parado",t:"mono"},{k:"Tendência",t:"trend"}],
+    rows:[
+      ["Goyazes","Referência trocada","12","Alto","2d","Melhorando"],
+      ["Resistol","Quantidade menor","7","Médio","1d","Piorando"],
+      ["Cadastro","Tabela ausente","8","Retrabalho","4h","Estável"],
+      ["Expedição","Cor divergente","3","Baixo","2h","Melhorando"],
+    ],
+    map:["Mostra problemas atuais por fornecedor, produto, etapa e motivo.",
+         "Inclui ranking de fornecedores com mais divergências.",
+         "Mostra tipos de divergência: referência, quantidade, cor, preço, descrição.",
+         "Mostra tempo parado por etapa para encontrar gargalos.",
+         "Ajuda a decidir ações corretivas."],
+  },
+  mc:{
+    eyebrow:"Gestão", title:"Melhoria Contínua", subtitle:"Evolução de processos ao longo do tempo",
+    kpis:[
+      {val:"−38%",lab:"Divergências",sub:"vs mês anterior",tone:"ok"},
+      {val:"−22%",lab:"Tempo médio",sub:"cadastro",tone:"ok"},
+      {val:"−15%",lab:"Retrabalho",sub:"equipe",tone:"ok"},
+    ],
+    chart:true,
+    map:["Mostra se a operação está melhorando ou piorando ao longo do tempo.",
+         "Compara mês, trimestre, ano e período personalizado.",
+         "Inclui evolução de divergência, retrabalho, tempo médio e fornecedores.",
+         "Mostra ganho acumulado: antes vs agora.",
+         "Usado para gestão e diretoria."],
+  },
+  rl:{
+    eyebrow:"Gestão", title:"Relatórios e Exportações", subtitle:"Consultas históricas por período",
+    reportFilters:true,
+    cols:[{k:"Relatório",t:"text"},{k:"Descrição",t:"text"},{k:"Filtros",t:"text"},{k:"Exportar",t:"badge"}],
+    rows:[
+      ["NFs","Status, fornecedor, responsável e tempo total","período / status","Excel/PDF"],
+      ["Produtividade","Usuário, setor, volume, tempo médio","período / setor","Excel"],
+      ["Divergências","Fornecedor, tipo, status, impacto","fornecedor / tipo","Excel/PDF"],
+      ["Retrabalho","Produto, motivo, solicitante, responsável","usuário / motivo","Excel"],
+      ["Logs","Antes, depois, usuário, data e motivo","produto / usuário","CSV"],
+    ],
+    map:["Relatórios são históricos e exportáveis.",
+         "Filtros por dia, semana, mês, ano e período personalizado.",
+         "Exportação em Excel, PDF e CSV.",
+         "Serve para reuniões, auditoria e análise gerencial.",
+         "Difere do Painel Operacional, que mostra o agora."],
+  },
+  lg:{
+    eyebrow:"Gestão", title:"Logs e Auditoria", subtitle:"Rastro completo das alterações",
+    kpis:[
+      {val:"312",lab:"Eventos hoje",sub:"logs",tone:"process"},
+      {val:"8", lab:"Correções",sub:"registradas",tone:"amber"},
+      {val:"2", lab:"Vínculos alterados",sub:"PC/NF",tone:"pc"},
+    ],
+    cols:[{k:"Data",t:"mono"},{k:"Usuário",t:"text"},{k:"Módulo",t:"badge"},{k:"Campo",t:"text"},{k:"Antes",t:"mono"},{k:"Depois",t:"mono"},{k:"Motivo",t:"text"}],
+    rows:[
+      ["11/06 14:32","Ana","ERP","Cor","Café","Pinhão","Correção"],
+      ["11/06 15:02","Zé","Fiscal","Vínculo","PC1025","PC1030","Ajuste"],
+      ["11/06 15:44","Kaio","Site","Descrição","Rascunho","Publicado","Cadastro"],
+      ["11/06 16:01","Gabriel","Expedição","Qtd","10","8","Conferência"],
+    ],
+    map:["Toda alteração relevante é registrada para sempre.",
+         "Guarda antes, depois, usuário, data, hora e motivo.",
+         "Permite pesquisar por produto, NF, PC, usuário, fornecedor e campo.",
+         "Base para auditoria, rastreabilidade e solução de conflito.",
+         "Gestor/Master acessa logs completos. Outros perfis veem conforme permissão."],
+  },
+  cf:{
+    eyebrow:"Gestão", title:"Configurações", subtitle:"Usuários, permissões, fornecedores e regras",
+    kpis:[
+      {val:"18", lab:"Usuários ativos",sub:"perfis",tone:"process"},
+      {val:"126",lab:"Fornecedores",sub:"cadastrados",tone:"ok"},
+      {val:"9",  lab:"Regras de grade",sub:"normal/plus",tone:"amber"},
+    ],
+    cols:[{k:"Configuração",t:"text"},{k:"Função",t:"text"},{k:"Quem Edita",t:"text"},{k:"Status",t:"badge"}],
+    rows:[
+      ["Usuários e perfis","Cadastro de acesso, permissões e setores","Master","Ativo"],
+      ["Fornecedores","CNPJ, nome, tipo, padrões de importação","Master/Compras","Ativo"],
+      ["Regras de grade","Normal, Plus Size, BR/US e limite 100 variações","Master","Ativo"],
+      ["Mapeamento IA","Campos da NF, PC e planilhas por fornecedor","Master","Ativo"],
+    ],
+    map:["Área restrita ao Gestor/Master.",
+         "Fiscal não precisa ver configurações para evitar confusão operacional.",
+         "Permite administrar usuários, permissões, fornecedores e regras.",
+         "Inclui regra de 100 variações e separação normal/plus size.",
+         "Também guarda padrões de leitura da IA por fornecedor."],
+  },
+};
+
+const NF_DETAIL = {
+  eyebrow:"Notas Fiscais", title:"Detalhe da NF", subtitle:"Produtos, jornada e histórico",
+  head:{nf:"NF 7522 — Goyazes", status:"Cadastro ERP", diverg:"2 divergências", resp:"Resp. Ana"},
+  timeline:[["Recebida",1],["Conferida",1],["Fiscal",1],["ERP",2],["Etiquetagem",0],["Loja",0],["Site",0]],
+  cols:[{k:"Ref",t:"mono"},{k:"Descrição",t:"text"},{k:"Cor",t:"text"},{k:"Grade",t:"grade"},{k:"Status",t:"badge"},{k:"Alerta",t:"alert"}],
+  rows:[
+    ["263208-CF","Bota Goyazes Atlanta","Café","34(1) 35(2)","ERP",""],
+    ["263209-CF","Bota Goyazes Dallas","Preto","38(3) 39(2)","ERP","⚠ troca ref"],
+    ["241502-AC","Bota Avestruz Atlanta","Caramelo","40(1)","Concluído","✓"],
+  ],
+  hist:[["10:02","Recebida por Expedição"],["10:44","Conferida"],["11:05","Fiscal liberou cadastro"],["11:32","Ana assumiu ERP"]],
+  map:["Cabeçalho resume número, fornecedor, status, divergências e responsável.",
+       "Linha do tempo mostra a etapa atual da NF.",
+       "Tabela mostra produtos dentro da NF, não itens soltos no sistema.",
+       "Alertas indicam divergências ou correções por produto.",
+       "Histórico registra cada movimento com data, usuário e ação."],
+};
+
+/* ---------- perfis de acesso ---------- */
+const ROLES = {
+  gestor:   {label:"Administrador", av:"AD"},
+  superadm: {label:"Super Admin",   av:"SA"},
+  comum:    {label:"Usuário comum", av:"US"},
+  operador: {label:"Operador",      av:"OP"},
+  fiscal:   {label:"Fiscal",        av:"FI"},
+  compras:  {label:"Compras",       av:"CO"},
+};
+/* acesso base por perfil (além das páginas liberadas individualmente) */
+const ROLE_BASE = {
+  gestor:   "all",
+  superadm: ["usuarios"],
+  comum:    ["cover"],
+  operador: ["cover","fg","ex","dv","er","st","ft","et","cr"],
+  fiscal:   ["cover","fg","nf","vn","fi","co","dv"],
+  compras:  ["cover","fg","co","ql"],
+};
+/* páginas que o admin pode liberar (id, sigla, nome, grupo) */
+const RELEASABLE = [
+  ["fg","FG","Fila Geral","Filas"],["pc","PC","Pedidos Compra","Filas"],["nf","NF","Notas Fiscais","Filas"],["vn","VN","Vinculados","Filas"],
+  ["ex","EX","Conferência","Recebimento"],["dv","DV","Divergências","Recebimento"],["fi","FI","Fiscal","Recebimento"],["co","CO","Compras","Recebimento"],
+  ["er","ER","Cadastro ERP","Cadastro"],["st","ST","Cadastro Site","Cadastro"],["ft","FT","Fotos","Cadastro"],["et","ET","Etiquetagem","Cadastro"],["cr","CR","Correções","Cadastro"],
+  ["op","OP","Operacional","Gestão"],["pr","PR","Produtividade","Gestão"],["ql","QL","Qualidade","Gestão"],["mc","MC","Melhoria","Gestão"],["rl","RL","Relatórios","Gestão"],["lg","LG","Logs","Gestão"],["cf","CF","Configurações","Gestão"],
+];
+
+SCREENS.usuarios = {
+  eyebrow:"Administração", title:"Usuários e Acessos", subtitle:"Cada conta começa como comum — libere as páginas por usuário",
+  kpis:[
+    {val:"—",lab:"Usuários",sub:"cadastrados",tone:"process"},
+    {val:"—",lab:"Comuns",sub:"sem liberação",tone:"amber"},
+    {val:"2",lab:"Administradores",sub:"ADM + Super ADM",tone:"ok"},
+    {val:"—",lab:"Páginas liberáveis",sub:"por usuário",tone:"process"},
+  ],
+  newBtn:"Novo usuário",
+  cols:[{k:"Nome",t:"text"},{k:"Login",t:"mono"},{k:"Perfil",t:"badge"},{k:"Páginas liberadas",t:"text"},{k:"Status",t:"badge"},{k:"Ação",t:"act"}],
+  rows:[
+    ["Rayllan","rayllan","Administrador","todas","Ativo","Editar acesso"],
+    ["Davi Nascimento","davi.nascimento","Super Admin","gestão de usuários","Ativo","Editar acesso"],
+    ["João (exemplo)","joao","Usuário comum","FG · EX · FT · ET","Ativo","Editar acesso"],
+    ["Maria (exemplo)","maria","Usuário comum","nenhuma","Ativo","Editar acesso"],
+  ],
+  map:["Qualquer pessoa cria a própria conta na tela de login.",
+       "Toda conta nova entra como Usuário comum, sem páginas liberadas.",
+       "ADM e Super ADM editam o perfil e liberam as páginas de cada usuário.",
+       "As permissões valem no servidor (regras do Firestore), não só na tela.",
+       "Toda mudança de acesso é registrada em Logs."],
+  note:"Ninguém consegue se auto-promover: a conta criada pelo próprio usuário é sempre comum.",
+};
+
+SCREENS.comum_vazio = {eyebrow:"Acesso",title:"Aguardando liberação",subtitle:""};
+
+/* ============================================================ HELPERS ============================================================ */
+const $=s=>document.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const esc=s=>String(s).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+
+function toneClass(text){
+  const t=(text||"").toString().toLowerCase().trim();
+  if(!t||t==="—"||t==="n/a") return "b-muted";
+  if(/inativ|desativ|removido/.test(t)) return "b-muted";
+  if(/diverg|^aberta$|piorando|pendente|bloque|crític/.test(t)) return "b-danger";
+  if(/adiad|atras|aguardar fornecedor|negocia|^novo$/.test(t)) return "b-amber";
+  if(/aguardando|análise|analise|revis|^rev$|andamento|editando|fornecedor$/.test(t)) return "b-warn";
+  if(/conclu|conferid|publicad|resolvid|liberad|melhorando|^ok$|estável|estavel|pronto|normal|^ativo$|excel|^csv$|loja liberada/.test(t)) return "b-ok";
+  if(/pré-cadastro|pre-cadastro|sugerid|vínculo|vinculo|pc\d/.test(t)) return "b-pc";
+  return "b-process";
+}
+function cell(val,type){
+  const v=esc(val??"");
+  switch(type){
+    case "mono": return `<td class="mono">${v}</td>`;
+    case "grade": return `<td><span class="grade">${v}</span></td>`;
+    case "money": return `<td class="mono">${v}</td>`;
+    case "text": return `<td>${v}</td>`;
+    case "badge":
+      if(!val) return `<td></td>`;
+      return `<td><span class="badge ${toneClass(val)}"><span class="dot"></span>${v}</span></td>`;
+    case "alert":{
+      if(!val) return `<td></td>`;
+      const s=String(val);
+      if(s.startsWith("⚠")) return `<td><span class="alert-warn">⚠ ${esc(s.replace(/^⚠\s*/,""))}</span></td>`;
+      if(s.includes("✓")) return `<td><span class="alert-ok">✓ conferido</span></td>`;
+      if(/adiad/i.test(s)) return `<td><span class="badge b-amber"><span class="dot"></span>${v}</span></td>`;
+      if(/aguard/i.test(s)) return `<td><span class="badge b-warn"><span class="dot"></span>${v}</span></td>`;
+      return `<td>${v}</td>`;
+    }
+    case "conf":{
+      if(!val||val==="—") return `<td>—</td>`;
+      const n=parseInt(val,10)||0;
+      return `<td><div class="conf"><span class="track"><span class="fill" style="width:${n}%"></span></span><span class="pct">${v}</span></div></td>`;
+    }
+    case "impact":{
+      const m={"alto":"b-danger","médio":"b-amber","medio":"b-amber","baixo":"b-ok","retrabalho":"b-process"};
+      return `<td><span class="badge ${m[(val||"").toLowerCase()]||"b-muted"}"><span class="dot"></span>${v}</span></td>`;
+    }
+    case "trend":{
+      const t=(val||"").toLowerCase();
+      const cls=/melhorando/.test(t)?"b-ok":/piorando/.test(t)?"b-danger":"b-process";
+      const ar=/melhorando/.test(t)?"↓":/piorando/.test(t)?"↑":"→";
+      return `<td><span class="badge ${cls}">${ar} ${v}</span></td>`;
+    }
+    case "yn":
+      return /sim/i.test(val)?`<td><span class="yn-yes">✓ Sim</span></td>`:`<td><span class="yn-no">— Não</span></td>`;
+    case "act":
+      return `<td><button class="act" data-act>${v}</button></td>`;
+    default: return `<td>${v}</td>`;
+  }
+}
+
+function buildTable(s){
+  const wrap=el("div","panel");
+  // head + filters
+  const head=el("div","panel-head");
+  head.appendChild(el("h2",null,s.title));
+  if(s.filters){
+    const chips=el("div","chips");
+    s.filters.forEach((f,i)=>{
+      const c=el("button","chip"+(i===0?" on":""),f);
+      c.onclick=()=>{chips.querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));c.classList.add("on");applyFilter(s,f,wrap);};
+      chips.appendChild(c);
+    });
+    head.appendChild(chips);
+  }
+  if(s.extraBtn){
+    const b=el("button","act",s.extraBtn.label);
+    b.onclick=()=>go(s.extraBtn.go);
+    head.appendChild(b);
+  }
+  if(s.newBtn){
+    const b=el("button","btn btn-primary",`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg> ${s.newBtn}`);
+    b.style.fontSize="12.5px";b.style.padding="6px 12px";
+    b.onclick=openNewUser;
+    head.appendChild(b);
+  }
+  wrap.appendChild(head);
+
+  if(s.reportFilters){
+    const f=el("div","flowstrip");
+    f.style.justifyContent="space-between";
+    const left=el("div","chips");
+    ["Hoje","Semana","Mês","Ano","Personalizado"].forEach((p,i)=>{
+      const c=el("button","chip"+(i===2?" on":""),p);
+      c.onclick=()=>{left.querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));c.classList.add("on");};
+      left.appendChild(c);
+    });
+    const right=el("div","chips");
+    ["Excel","PDF","CSV"].forEach(p=>{const c=el("button","chip",p);c.onclick=()=>{recordAction("Relatórios","Exportar","",p);toast("Relatório exportado em "+p);};right.appendChild(c);});
+    f.appendChild(left);f.appendChild(right);
+    wrap.appendChild(f);
+  }
+  if(s.info){
+    wrap.appendChild(el("p","info",
+      `<span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></svg></span><span><b>${esc(s.info.b)}</b> ${esc(s.info.t)}</span>`));
+  }
+  if(s.flow){
+    const f=el("div","flowstrip");
+    s.flow.forEach((n,i)=>{f.appendChild(el("span","fchip",esc(n)));if(i<s.flow.length-1)f.appendChild(el("span","farrow","→"));});
+    wrap.appendChild(f);
+  }
+  if(s.actions){
+    const a=el("div","actions");
+    s.actions.forEach(x=>{const b=el("button","fa"+(x.cls?" "+x.cls:""),esc(x.l));b.onclick=()=>{recordAction((s.title||"Fiscal"),x.l,"","");toast("Ação registrada: "+x.l);};a.appendChild(b);});
+    wrap.appendChild(a);
+  }
+
+  // table
+  const tw=el("div","tbl-wrap");
+  const tbl=el("table");
+  const thead=el("thead");
+  const trh=el("tr");
+  s.cols.forEach(c=>trh.appendChild(el("th",c.t==="mono"?"mono":null,esc(c.k))));
+  thead.appendChild(trh);tbl.appendChild(thead);
+  const tbody=el("tbody");tbody.id="tbody";
+  s.rows.forEach((r,ri)=>{
+    const tr=el("tr");tr.dataset.ri=ri;
+    if(s.openDetail){tr.className="clickable";tr.onclick=e=>{if(!e.target.closest("[data-act]"))go("nfdetail");};}
+    tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);tw.appendChild(tbl);wrap.appendChild(tw);
+  wireActs(wrap,s);
+  return wrap;
+}
+
+function wireActs(wrap,s){
+  wrap.querySelectorAll("[data-act]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const tr=b.closest("tr");const ri=tr?+tr.dataset.ri:-1;
+    if(s.onAct){ s.onAct(ri); } else { doActBtn(b.textContent.trim()); }
+  });
+}
+
+function applyFilter(s,f,wrap){
+  const tbody=wrap.querySelector("#tbody");tbody.innerHTML="";
+  const pred=s.rowFilter?s.rowFilter():null;
+  s.rows.filter(r=>{if(f==="Todos"||!pred)return true;const p=s.rowFilter(r);return p[f];}).forEach((r,ri)=>{
+    const tr=el("tr");tr.dataset.ri=ri;
+    if(s.openDetail){tr.className="clickable";tr.onclick=e=>{if(!e.target.closest("[data-act]"))go("nfdetail");};}
+    tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
+    tbody.appendChild(tr);
+  });
+  wireActs(wrap,s);
+}
+
+function buildKpis(kpis){
+  const g=el("div","kpis");
+  const tmap={ok:"var(--ok)",warn:"var(--warn)",amber:"var(--amber)",danger:"var(--danger)",process:"var(--process)",pc:"var(--pc)"};
+  kpis.forEach(k=>{
+    const c=el("div","kpi");
+    c.style.setProperty("--accent",tmap[k.tone]||"var(--ferro)");
+    c.innerHTML=`<div class="lab">${esc(k.lab)}</div>
+      <div class="val">${esc(k.val)}${k.unit?`<span class="u">${esc(k.unit)}</span>`:""}</div>
+      ${k.sub?`<div class="sub">${esc(k.sub)}</div>`:""}`;
+    g.appendChild(c);
+  });
+  return g;
+}
+
+function buildMap(s){
+  const aside=el("aside","");
+  const m=el("div","map");
+  m.innerHTML=`<div class="map-head"><span class="pin"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></span><div><b>Mapa da tela</b><span>${esc(s.title)}</span></div></div>`;
+  const ol=el("ol");
+  s.map.forEach(t=>ol.appendChild(el("li",null,esc(t))));
+  m.appendChild(ol);aside.appendChild(m);
+  if(s.note) aside.appendChild(el("div","note",`<b>Nota</b><span>${esc(s.note)}</span>`));
+  return aside;
+}
+
+/* ---------- special renderers ---------- */
+function renderCover(){
+  const allowed = CURRENT_USER ? computeAllowed(CURRENT_USER) : null;
+  const onlyCover = allowed && [...allowed].every(x=>["cover","flow","nfdetail"].includes(x));
+  if(CURRENT_ROLE && CURRENT_ROLE!=="gestor" && onlyCover){
+    const w=el("div","cover");
+    w.innerHTML=`<div class="hero" style="text-align:center">
+        <div class="hero-eye">Bem-vindo ao Texas Flow</div>
+        <h1 style="max-width:20ch;margin:14px auto 0">Sua conta está <em>aguardando liberação</em>.</h1>
+        <p style="margin:16px auto 0">Você entrou como <b style="color:#f1e6d3">usuário comum</b>. Assim que o administrador liberar as páginas do seu acesso, elas aparecem aqui no menu. Fale com o ADM se precisar de acesso.</p>
+      </div>`;
+    return w;
+  }
+  const c=el("div","cover");
+  c.innerHTML=`
+    <div class="hero">
+      <div class="hero-eye">Texas Center · Wireframe navegável</div>
+      <h1>A <em>Nota Fiscal</em> no centro de toda a operação.</h1>
+      <p>Sistema de gestão de recebimento, cadastro e publicação de produtos. Todas as filas partem da NF ou do vínculo PC + NF — da Expedição ao Site, com dados de produtividade, qualidade e melhoria contínua.</p>
+      <div class="hero-tags">
+        <span class="htag">NF como centro</span>
+        <span class="htag">Fluxo nacional + importado</span>
+        <span class="htag">PC ≠ PO</span>
+        <span class="htag">21 telas mapeadas</span>
+      </div>
+      <div class="hero-cta">
+        <button class="btn btn-primary" id="enter">Entrar na Fila Geral →</button>
+        <button class="btn" id="seeflow" style="color:#f1e6d3;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2)">Ver mapa de fluxos</button>
+      </div>
+    </div>
+    <div class="cover-grid">
+      <div class="pillar"><div class="pn">1</div><h3>NF como centro</h3><p>Todas as filas partem da NF ou do vínculo PC + NF. Produtos vivem dentro da nota.</p></div>
+      <div class="pillar"><div class="pn">2</div><h3>Fluxo por etapas</h3><p>Expedição, Fiscal, Cadastro ERP, Site, Etiquetagem e Loja em sequência clara.</p></div>
+      <div class="pillar"><div class="pn">3</div><h3>Dados para gestão</h3><p>Produtividade, qualidade, retrabalho e melhoria contínua em tempo real.</p></div>
+      <div class="pillar"><div class="pn">4</div><h3>Mapa de tela</h3><p>Cada página mostra a janela e a função de cada área do sistema.</p></div>
+    </div>`;
+  setTimeout(()=>{const e=$("#enter"),f=$("#seeflow");if(e)e.onclick=()=>go("fg");if(f)f.onclick=()=>go("flow");},0);
+  return c;
+}
+
+function renderFlow(){
+  const wrap=el("div","flowmap");
+  const node=(label,cls="")=>`<div class="step ${cls}"><span class="node">${esc(label)}</span></div>`;
+  const arr=`<span class="arr">→</span>`;
+  const lane=(items,startCls="")=>items.map((n,i)=>{
+    let cls=i===0?"start "+startCls:i===items.length-1?"end":"";
+    return node(n,cls)+(i<items.length-1?arr:"");
+  }).join("");
+
+  const nac=el("div","flowcard");
+  nac.innerHTML=`<div class="flowcard-h"><span class="tag tag-nac">Nacional</span><b>Fluxo Nacional</b><span>começa pela NF</span></div>
+    <div class="steps">${lane(["NF","Conferência","Fiscal","Cadastro ERP","Etiquetagem","Loja","Site"])}</div>`;
+
+  const imp=el("div","flowcard");
+  imp.innerHTML=`<div class="flowcard-h"><span class="tag tag-imp">Importado</span><b>Fluxo Importado</b><span>pode começar pelo PC</span></div>
+    <div class="steps">${lane(["PC","Pré-cadastro","NF","Vincular","Conferência","Fiscal","ERP"],"imp")}</div>
+    <div class="sub-row">
+      <div class="lane"><span class="lane-lab">Após o ERP — em paralelo</span>${lane(["Liberar etiquetagem","Fila Site","Fotos / descrição","Publicar"])}</div>
+      <div class="lane"><span class="lane-lab">Saída para loja</span>${lane(["Etiquetar","Fiscal libera loja","Loja"])}</div>
+    </div>`;
+
+  wrap.appendChild(nac);wrap.appendChild(imp);
+  return wrap;
+}
+
+function renderNfDetail(){
+  const d=NF_DETAIL;
+  const frag=document.createDocumentFragment();
+  const head=el("div","nfhead");
+  const tl=d.timeline.map((p,i)=>{
+    const st=p[1]===1?"done":p[1]===2?"now":"";
+    const seg=i<d.timeline.length-1?`<div class="seg ${d.timeline[i][1]===1?"done":""}"></div>`:"";
+    return `<div class="tl"><div class="pt ${st}"><span class="ring"></span><small>${esc(p[0])}</small></div>${seg?`<div class="seg ${d.timeline[i][1]===1?"done":""}"></div>`:""}</div>`;
+  }).join("");
+  head.innerHTML=`
+    <div class="top">
+      <h2>${esc(d.head.nf)}</h2>
+      <div class="meta">
+        <span class="badge b-process"><span class="dot"></span>${esc(d.head.status)}</span>
+        <span class="badge b-danger"><span class="dot"></span>${esc(d.head.diverg)}</span>
+        <span class="badge b-muted">${esc(d.head.resp)}</span>
+      </div>
+    </div>
+    <div class="timeline">${tl}</div>
+    <div class="histbar"><b>Histórico rápido</b>${d.hist.map(h=>`<span class="ev"><span class="t">${esc(h[0])}</span> ${esc(h[1])}</span>`).join(' <span style="color:#cbb">·</span> ')}</div>`;
+  frag.appendChild(head);
+
+  const panel=el("div","panel");
+  panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2>`));
+  const tw=el("div","tbl-wrap");const tbl=el("table");
+  tbl.innerHTML=`<thead><tr>${d.cols.map(c=>`<th class="${c.t==='mono'?'mono':''}">${esc(c.k)}</th>`).join("")}</tr></thead><tbody>${
+    d.rows.map(r=>`<tr>${d.cols.map((c,i)=>cell(r[i],c.t)).join("")}</tr>`).join("")}</tbody>`;
+  tw.appendChild(tbl);panel.appendChild(tw);frag.appendChild(panel);
+  return frag;
+}
+
+function renderChart(){
+  const panel=el("div","panel");
+  panel.appendChild(el("div","panel-head",`<h2>Evolução mensal — divergências e retrabalho</h2>`));
+  const months=["Jan","Fev","Mar","Abr","Mai","Jun"];
+  const div=[68,61,55,47,44,42], ret=[41,38,33,30,27,25];
+  const W=720,H=260,P=34, max=72;
+  const bw=18,gap=8, group=(W-P*2)/months.length;
+  let bars="",labels="",grid="";
+  for(let g=0;g<=4;g++){const y=H-P-(g/4)*(H-P*2);grid+=`<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="#efe7d8"/><text x="${P-8}" y="${y+4}" text-anchor="end" font-size="10" fill="#9c8f7d" font-family="IBM Plex Mono">${Math.round(g/4*max)}</text>`;}
+  months.forEach((m,i)=>{
+    const x0=P+group*i+group/2;
+    const hd=(div[i]/max)*(H-P*2), hr=(ret[i]/max)*(H-P*2);
+    const xd=x0-bw-gap/2, xr=x0+gap/2;
+    bars+=`<rect class="bar" x="${xd}" y="${H-P-hd}" width="${bw}" height="${hd}" rx="3" fill="#5a6b8a"></rect>`;
+    bars+=`<rect class="bar" x="${xr}" y="${H-P-hr}" width="${bw}" height="${hr}" rx="3" fill="#b3261e"></rect>`;
+    bars+=`<text x="${xd+bw/2}" y="${H-P-hd-5}" text-anchor="middle" font-size="9.5" fill="#5a6b8a" font-family="IBM Plex Mono">${div[i]}</text>`;
+    bars+=`<text x="${xr+bw/2}" y="${H-P-hr-5}" text-anchor="middle" font-size="9.5" fill="#b3261e" font-family="IBM Plex Mono">${ret[i]}</text>`;
+    labels+=`<text x="${x0}" y="${H-P+18}" text-anchor="middle" font-size="11" fill="#6f6354" font-family="Oswald">${m}</text>`;
+  });
+  const cw=el("div","chartwrap");
+  cw.innerHTML=`<svg viewBox="0 0 ${W} ${H+10}" style="width:100%;height:auto" role="img" aria-label="Gráfico de evolução mensal">${grid}${bars}${labels}</svg>
+    <div class="legend"><span><i style="background:#5a6b8a"></i>Divergências</span><span><i style="background:#b3261e"></i>Retrabalho</span></div>`;
+  panel.appendChild(cw);
+  return panel;
+}
+
+/* ============================================================ RENDER ============================================================ */
+let current="cover";
+let CURRENT_ROLE=null;
+let ALLOWED=null;
+
+function computeAllowed(user){
+  const role=(user&&user.role)||"comum";
+  const base=ROLE_BASE[role]||["cover"];
+  if(base==="all"){
+    const s=new Set(["cover","flow","nfdetail","usuarios"]);
+    NAV.forEach(g=>g.items.forEach(i=>s.add(i.id)));
+    return s;
+  }
+  const s=new Set(base);
+  ((user&&user.pages)||[]).forEach(p=>s.add(p));
+  s.add("cover");
+  if(s.has("fg")||s.has("nf")) s.add("nfdetail");
+  return s;
+}
+function landingFor(user){
+  if(user.role==="gestor") return "cover";
+  if(user.role==="superadm") return "usuarios";
+  const allowed=computeAllowed(user);
+  const order=["fg","ex","ft","et","er","st","cr","nf","pc","vn","dv","fi","co","op","pr","ql","mc","rl","lg","cf","usuarios"];
+  for(const id of order) if(allowed.has(id)) return id;
+  return "cover";
+}
+
+function buildNav(){
+  const nav=$("#nav");nav.innerHTML="";
+  NAV.forEach(group=>{
+    const items=group.items.filter(it=>!ALLOWED||ALLOWED.has(it.id));
+    if(!items.length) return;
+    nav.appendChild(el("div","nav-group",group.grp));
+    items.forEach(it=>{
+      const b=el("button","nav-item"+(it.id===current?" active":""));
+      b.dataset.id=it.id;
+      b.innerHTML=`<span class="sigla">${it.sig}</span><span>${esc(it.name)}</span>`;
+      b.onclick=()=>go(it.id);
+      nav.appendChild(b);
+    });
+  });
+}
+
+function setTopbar(eyebrow,title,subtitle){
+  $("#eyebrow").textContent=eyebrow||"Texas Center";
+  $("#title").textContent=title||"";
+  $("#subtitle").textContent=subtitle||"";
+}
+
+function go(id){
+  if(ALLOWED && !ALLOWED.has(id)) id=landingFor(CURRENT_USER);
+  current=id;
+  buildNav();
+  $("#search").value="";
+  closeSide();
+  const view=$("#view");view.innerHTML="";view.scrollTop=0;
+  $(".scroll").scrollTop=0;
+
+  if(id==="cover"){ setTopbar("Texas Center","Visão geral","Sistema de Gestão de Recebimento, Cadastro e Publicação"); view.appendChild(renderCover()); return; }
+  if(id==="flow"){ setTopbar("Mapa de fluxos","Mapa de fluxos","Fluxo nacional e fluxo importado"); view.appendChild(renderFlow()); return; }
+  if(id==="nfdetail"){
+    setTopbar(NF_DETAIL.eyebrow,NF_DETAIL.title,NF_DETAIL.subtitle);
+    const content=el("div","content");
+    const left=el("div");left.appendChild(renderNfDetail());
+    content.appendChild(left);content.appendChild(buildMap(NF_DETAIL));
+    view.appendChild(content);
+    return;
+  }
+
+  const s=SCREENS[id];
+  if(!s){ go("cover"); return; }
+  if(FB_ENABLED){
+    if(id==="lg" && LIVE_LOGS.length)
+      s.rows=LIVE_LOGS.map(l=>[fmtTs(l.ts),l.usuario||"",l.modulo||"",l.campo||"",l.antes||"",l.depois||"",l.motivo||(l.device?("· "+l.device):"")]);
+    if(id==="usuarios" && LIVE_USERS.length)
+      s.rows=LIVE_USERS.map(u=>[u.name||"",u.login||u.email||"",ROLE_LABEL[u.role]||u.role||"",pagesSummary(u),u.status||"Ativo","Editar acesso"]);
+  }
+  setTopbar(s.eyebrow,s.title,s.subtitle);
+
+  const content=el("div","content");
+  const left=el("div");
+  if(s.kpis) left.appendChild(buildKpis(s.kpis));
+  if(s.chart) left.appendChild(renderChart());
+  else left.appendChild(buildTable(s));
+  content.appendChild(left);
+  content.appendChild(buildMap(s));
+  view.appendChild(content);
+}
+
+/* ---------- search filters current table ---------- */
+$("#search").addEventListener("input",e=>{
+  const q=e.target.value.toLowerCase().trim();
+  const rows=document.querySelectorAll("#tbody tr");
+  rows.forEach(tr=>{tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?"":"none";});
+});
+$("#export").onclick=()=>{const p=$("#period").value;recordAction((SCREENS[current]&&SCREENS[current].title)||current,"Exportar","",p);toast(`Exportação gerada — período: ${p}`);};
+$("#period").onchange=e=>toast("Período: "+e.target.value);
+
+/* ---------- toast ---------- */
+let tt;
+function toast(msg){const t=$("#toast");$("#toast-msg").textContent=msg;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200);}
+
+/* ---------- mobile sidebar ---------- */
+function openSide(){$("#side").classList.add("open");$("#scrim").classList.add("show");}
+function closeSide(){$("#side").classList.remove("open");$("#scrim").classList.remove("show");}
+$("#hamb").onclick=openSide;
+$("#scrim").onclick=closeSide;
+
+/* ============================================================ FIREBASE ============================================================ */
+/* 1) Crie um projeto no console.firebase.google.com
+   2) Ative Authentication > Email/senha e crie o Firestore
+   3) Cole abaixo a config do projeto (Configurações do projeto > Seus apps)
+   4) Publique as regras do arquivo firestore.rules
+   Enquanto a config estiver com "COLE_...", o sistema roda em modo demonstração (local). */
+const FIREBASE_CONFIG = {
+  apiKey: "COLE_SUA_API_KEY",
+  authDomain: "COLE_SEU_PROJETO.firebaseapp.com",
+  projectId: "COLE_SEU_PROJECT_ID",
+  storageBucket: "COLE_SEU_PROJETO.appspot.com",
+  messagingSenderId: "COLE_SEU_SENDER_ID",
+  appId: "COLE_SEU_APP_ID",
+};
+const AUTH_EMAIL_DOMAIN = "@texascenter.com.br"; // usado só quando o login vier sem "@"
+const DEVICE = "PC-" + Math.random().toString(36).slice(2,6).toUpperCase();
+const ROLE_LABEL = {gestor:"Administrador",superadm:"Super Admin",comum:"Usuário comum",operador:"Operador",fiscal:"Fiscal",compras:"Compras"};
+/* e-mails que recebem perfil elevado já no cadastro (precisa bater com a regra do Firestore) */
+const BOOTSTRAP = {
+  "rayllan@texascenter.com.br":     {role:"gestor",   name:"Rayllan"},
+  "davi.nascimento@texas.com.br":   {role:"superadm", name:"Davi Nascimento"},
+};
+let signingUp=false;
+
+let FB_ENABLED=false, auth=null, db=null;
+let LIVE_LOGS=[], LIVE_USERS=[], unsub=[];
+
+function initFirebase(){
+  try{
+    if(typeof firebase==="undefined") return false;
+    if(!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf("COLE_")===0) return false;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    auth=firebase.auth(); db=firebase.firestore();
+    return true;
+  }catch(e){ console.warn("Firebase indisponível:",e); return false; }
+}
+FB_ENABLED=initFirebase();
+
+function emailFor(login){ return login.includes("@") ? login : (login + AUTH_EMAIL_DOMAIN); }
+function fbError(err){
+  const c=(err&&err.code)||"";
+  if(c.includes("email-already-in-use")) return "Já existe uma conta com esse e-mail.";
+  if(c.includes("weak-password")) return "Senha muito fraca (mínimo 6 caracteres).";
+  if(c.includes("invalid-email")) return "E-mail inválido.";
+  if(c.includes("user-not-found")||c.includes("invalid-credential")||c.includes("wrong-password")) return "E-mail ou senha inválidos.";
+  if(c.includes("too-many-requests")) return "Muitas tentativas. Tente novamente em instantes.";
+  if(c.includes("network")) return "Sem conexão com o servidor.";
+  return "Operação não concluída. Tente novamente.";
+}
+function fmtTs(ts){
+  try{ const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):new Date());
+    const p=n=>String(n).padStart(2,"0");
+    return p(d.getDate())+"/"+p(d.getMonth()+1)+" "+p(d.getHours())+":"+p(d.getMinutes());
+  }catch(e){ return "agora"; }
+}
+
+/* registra QUALQUER ação no Firestore — chega ao vivo nos outros computadores */
+function recordAction(modulo, campo, antes, depois, motivo){
+  if(!(FB_ENABLED && db && CURRENT_USER)) return;
+  db.collection("logs").add({
+    ts: firebase.firestore.FieldValue.serverTimestamp(),
+    usuario: CURRENT_USER.name, login: CURRENT_USER.login||"", role: CURRENT_ROLE,
+    modulo: modulo||"", campo: campo||"", antes: antes||"", depois: depois||"", motivo: motivo||"",
+    device: DEVICE,
+  }).catch(e=>console.warn("log falhou:",e));
+}
+
+/* listeners em tempo real */
+function startLiveSync(){
+  stopLiveSync();
+  if(!FB_ENABLED) return;
+  if(CURRENT_ROLE==="gestor"){
+    unsub.push(db.collection("logs").orderBy("ts","desc").limit(120).onSnapshot(s=>{
+      LIVE_LOGS=s.docs.map(d=>d.data());
+      if(current==="lg") go("lg");
+    }, e=>console.warn("logs:",e)));
+  }
+  if(CURRENT_ROLE==="gestor"||CURRENT_ROLE==="superadm"){
+    unsub.push(db.collection("users").orderBy("name").onSnapshot(s=>{
+      LIVE_USERS=s.docs.map(d=>({id:d.id, ...d.data()}));
+      if(current==="usuarios") go("usuarios");
+    }, e=>console.warn("users:",e)));
+  }
+}
+function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; }
+
+function pagesSummary(u){
+  if(u.role==="gestor") return "todas";
+  if(u.role==="superadm") return "gestão de usuários";
+  const ps=u.pages||[];
+  if(!ps.length && (ROLE_BASE[u.role]||["cover"]).filter(x=>x!=="cover").length===0) return "nenhuma";
+  const sigs=ps.map(p=>{const f=RELEASABLE.find(r=>r[0]===p);return f?f[1]:p;});
+  const base=(ROLE_BASE[u.role]||[]).filter(x=>x!=="cover").length;
+  return (base?("perfil + "):"")+(sigs.length?sigs.join(" · "):(base?"":"nenhuma"));
+}
+
+/* ---- cadastro da própria conta (sempre começa comum, salvo e-mails de bootstrap) ---- */
+function signUp(){
+  const name=$("#su-name").value.trim();
+  const email=$("#su-email").value.trim().toLowerCase();
+  const pass=$("#su-pass").value;
+  $("#signup-err").classList.remove("show");
+  if(!name||!email||pass.length<6){ signupFail("Preencha nome, e-mail e senha (mín. 6 caracteres)."); return; }
+  if(!FB_ENABLED){ signupFail("Configure o Firebase para criar contas."); return; }
+  const boot=BOOTSTRAP[email];
+  const role=boot?boot.role:"comum";
+  signingUp=true; setBusy("signup-go",true,"Criando…");
+  auth.createUserWithEmailAndPassword(email,pass).then(cred=>{
+    const uid=cred.user.uid;
+    return db.collection("users").doc(uid).set({
+      name, login: email.split("@")[0], email, role, pages:[], status:"Ativo",
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>uid);
+  }).then(uid=>{
+    signingUp=false; setBusy("signup-go",false,"Criar conta →");
+    doLogin({uid, login:email.split("@")[0], name, role, pages:[]});
+    recordAction("Acesso","Criou conta","",name+" ("+ROLE_LABEL[role]+")");
+  }).catch(err=>{ signingUp=false; setBusy("signup-go",false,"Criar conta →"); signupFail(fbError(err)); });
+}
+
+/* ---- admin cria usuário sem deslogar (instância secundária) ---- */
+function openNewUser(){ $("#user-modal").classList.add("show"); $("#nu-name").focus(); }
+function closeNewUser(){ $("#user-modal").classList.remove("show"); ["nu-name","nu-login"].forEach(id=>$("#"+id).value=""); }
+function saveNewUser(){
+  const name=$("#nu-name").value.trim(), login=$("#nu-login").value.trim().toLowerCase();
+  const role=$("#nu-role").value, pass=$("#nu-pass").value||"texasflow";
+  const email=login.includes("@")?login:(login+AUTH_EMAIL_DOMAIN);
+  if(!name||!login){ toast("Informe nome e login."); return; }
+  if(!FB_ENABLED){ toast("Modo demonstração: configure o Firebase para criar usuários."); closeNewUser(); return; }
+  const secondary=firebase.initializeApp(FIREBASE_CONFIG,"sec-"+Date.now());
+  secondary.auth().createUserWithEmailAndPassword(email,pass)
+    .then(cred=>db.collection("users").doc(cred.user.uid).set({
+       name, login: email.split("@")[0], email, role, pages:[], status:"Ativo",
+       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    }))
+    .then(()=>{ recordAction("Usuários","Novo usuário","",name+" ("+ROLE_LABEL[role]+")"); toast("Usuário criado: "+name); closeNewUser(); })
+    .catch(e=>toast("Erro: "+fbError(e)))
+    .finally(()=>{ try{secondary.delete();}catch(_){} });
+}
+
+/* ---- editor de acesso: muda perfil e libera páginas ---- */
+let EDIT_UID=null;
+function buildPageGrid(checked){
+  const box=$("#em-pages");box.innerHTML="";
+  let lastGrp="";
+  RELEASABLE.forEach(([id,sig,nome,grp])=>{
+    if(grp!==lastGrp){ box.appendChild(el("div","pg-grp",esc(grp))); lastGrp=grp; }
+    const lab=el("label","pg-item");
+    lab.innerHTML=`<input type="checkbox" value="${id}" ${checked.has(id)?"checked":""}><span class="pg-sig">${sig}</span><span>${esc(nome)}</span>`;
+    box.appendChild(lab);
+  });
+}
+function openEditUser(u){
+  EDIT_UID=u.id;
+  $("#em-title").textContent="Acesso · "+(u.name||u.login||"");
+  $("#em-role").value=ROLES[u.role]?u.role:"comum";
+  buildPageGrid(new Set(u.pages||[]));
+  togglePageGrid();
+  $("#edit-modal").classList.add("show");
+}
+function togglePageGrid(){
+  const role=$("#em-role").value;
+  const lock=(role==="gestor"||role==="superadm");
+  $("#em-pages").style.opacity=lock?.4:1;
+  $("#em-pages").style.pointerEvents=lock?"none":"auto";
+  $("#em-pages-note").textContent=lock
+    ? (role==="gestor"?"Administrador vê todas as páginas.":"Super Admin acessa apenas a gestão de usuários.")
+    : "Marque as páginas que este usuário poderá acessar.";
+}
+function closeEditUser(){ $("#edit-modal").classList.remove("show"); EDIT_UID=null; }
+function saveEditUser(){
+  if(!EDIT_UID) return;
+  if(!FB_ENABLED){ toast("Configure o Firebase para salvar acessos."); closeEditUser(); return; }
+  const role=$("#em-role").value;
+  const pages=[...document.querySelectorAll("#em-pages input:checked")].map(i=>i.value);
+  db.collection("users").doc(EDIT_UID).update({role, pages:(role==="gestor"||role==="superadm")?[]:pages})
+    .then(()=>{ recordAction("Usuários","Liberou acesso","",ROLE_LABEL[role]+" · "+(pages.length?pages.join(", "):"sem páginas")); toast("Acesso atualizado."); closeEditUser(); })
+    .catch(e=>toast("Erro: "+fbError(e)));
+}
+
+/* ações genéricas dos botões registram no Firestore */
+function doActBtn(label){
+  recordAction((SCREENS[current]&&SCREENS[current].title)||current, label, "", "Ação executada");
+  toast(label+(FB_ENABLED?" — salvo":" — registrado"));
+}
+function setBusy(id,b,txt){ const g=$("#"+id); if(!g)return; g.disabled=b; g.textContent=txt; }
+function signupFail(msg){ const e=$("#signup-err");e.textContent=msg;e.classList.add("show");
+  const card=document.querySelector(".login-card");card.classList.remove("shake");void card.offsetWidth;card.classList.add("shake"); }
+
+/* editar acesso a partir da tabela de usuários */
+SCREENS.usuarios.onAct=(i)=>{
+  if(FB_ENABLED && LIVE_USERS[i]) openEditUser(LIVE_USERS[i]);
+  else toast("Configure o Firebase para editar acessos reais.");
+};
+
+
+/* contas de demonstração (modo local). Em produção, vêm do Firebase. */
+const USERS={
+  rayllan:           {pass:"texasflow",role:"gestor",  name:"Rayllan"},
+  "davi.nascimento": {pass:"texasflow",role:"superadm",name:"Davi Nascimento"},
+  joao:              {pass:"texasflow",role:"comum",   name:"João (comum)", pages:["fg","ex","ft","et"]},
+  maria:             {pass:"texasflow",role:"comum",   name:"Maria (comum)", pages:[]},
+};
+let CURRENT_USER=null;
+
+function renderUser(){
+  const r=ROLES[CURRENT_ROLE];
+  $("#side-user").innerHTML=`<div class="avatar">${r.av}</div>
+    <div class="u"><b>${esc(CURRENT_USER.name)}</b><span>${esc(r.label)}</span></div>
+    <button class="logout" id="logout" title="Sair">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sair</button>`;
+  $("#logout").onclick=logout;
+}
+function doLogin(user){
+  CURRENT_USER=user;
+  CURRENT_ROLE=user.role;
+  ALLOWED=computeAllowed(user);
+  $("#login-err").classList.remove("show");
+  $("#login").style.display="none";
+  $("#shell").style.display="grid";
+  renderUser();
+  startLiveSync();
+  go(landingFor(user));
+}
+function logout(){
+  stopLiveSync();
+  const finish=()=>{
+    CURRENT_USER=null;CURRENT_ROLE=null;ALLOWED=null;closeSide();
+    $("#shell").style.display="none";
+    $("#login").style.display="grid";
+    $("#lg-pass").value="";
+    $("#lg-user").focus();
+  };
+  if(FB_ENABLED && auth){ auth.signOut().catch(()=>{}).then(finish); } else finish();
+}
+function loginFail(msg){
+  const e=$("#login-err");e.textContent=msg;e.classList.add("show");
+  const card=document.querySelector(".login-card");
+  card.classList.remove("shake");void card.offsetWidth;card.classList.add("shake");
+}
+let loginBusy=false;
+function setLoginBusy(b){ loginBusy=b; const g=$("#login-go"); g.disabled=b; g.textContent=b?"Entrando…":"Entrar →"; }
+function loadProfileAndEnter(fbUser){
+  db.collection("users").doc(fbUser.uid).get().then(snap=>{
+    setLoginBusy(false);
+    if(!snap.exists){ loginFail("Usuário sem perfil cadastrado. Avise o administrador."); auth.signOut(); return; }
+    const d=snap.data();
+    if(!ROLES[d.role]){ loginFail("Perfil inválido no cadastro: "+d.role); auth.signOut(); return; }
+    doLogin({uid:fbUser.uid, login:d.login||fbUser.email, name:d.name||fbUser.email, role:d.role});
+    recordAction("Acesso","Login","","Entrou — "+DEVICE);
+  }).catch(()=>{ setLoginBusy(false); loginFail("Falha ao carregar perfil."); });
+}
+function attemptLogin(){
+  if(loginBusy) return;
+  const raw=$("#lg-user").value.trim();
+  const login=raw.toLowerCase().split("@")[0];
+  const pass=$("#lg-pass").value;
+  $("#login-err").classList.remove("show");
+  if(FB_ENABLED){
+    const email = raw.includes("@") ? raw.toLowerCase() : (login + AUTH_EMAIL_DOMAIN);
+    setLoginBusy(true);
+    auth.signInWithEmailAndPassword(email,pass)
+      .then(cred=>loadProfileAndEnter(cred.user))
+      .catch(err=>{ setLoginBusy(false); loginFail(fbError(err)); });
+    return;
+  }
+  const acc=USERS[login];
+  if(!acc){ loginFail("Usuário não encontrado."); return; }
+  if(acc.pass!==pass){ loginFail("Senha incorreta."); return; }
+  doLogin({login, name:acc.name, role:acc.role, pages:acc.pages||[]});
+}
+$("#login-go").onclick=attemptLogin;
+$("#lg-user").addEventListener("keydown",e=>{if(e.key==="Enter")$("#lg-pass").focus();});
+$("#lg-pass").addEventListener("keydown",e=>{if(e.key==="Enter")attemptLogin();});
+
+/* alternar entre Entrar e Criar conta */
+function showSignup(on){
+  $("#pane-login").style.display=on?"none":"block";
+  $("#pane-signup").style.display=on?"block":"none";
+  $("#login-err").classList.remove("show"); $("#signup-err").classList.remove("show");
+}
+$("#to-signup").onclick=()=>showSignup(true);
+$("#to-login").onclick=()=>showSignup(false);
+$("#signup-go").onclick=signUp;
+$("#su-pass").addEventListener("keydown",e=>{if(e.key==="Enter")signUp();});
+
+/* ---------- init ---------- */
+$("#nu-cancel").onclick=closeNewUser;
+$("#nu-save").onclick=saveNewUser;
+$("#user-modal").addEventListener("click",e=>{ if(e.target.id==="user-modal") closeNewUser(); });
+$("#em-cancel").onclick=closeEditUser;
+$("#em-save").onclick=saveEditUser;
+$("#em-role").onchange=togglePageGrid;
+$("#edit-modal").addEventListener("click",e=>{ if(e.target.id==="edit-modal") closeEditUser(); });
+
+$("#livepill").textContent = FB_ENABLED ? "Ao vivo" : "Local";
+$("#livepill").className = FB_ENABLED ? "livepill on" : "livepill";
+$("#demobar").style.display = FB_ENABLED ? "none" : "flex";
+$("#demo-hint").style.display = FB_ENABLED ? "none" : "block";
+
+if(FB_ENABLED && auth){
+  auth.onAuthStateChanged(u=>{ if(u && !CURRENT_USER && !signingUp) loadProfileAndEnter(u); });
+}
+$("#lg-user").focus();
+</script>
+</body>
+</html>
