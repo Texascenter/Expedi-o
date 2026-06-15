@@ -401,6 +401,18 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .boot p{font-size:12.5px;font-family:"Oswald";letter-spacing:1px;text-transform:uppercase;margin:0}
 .empty-row{text-align:center;color:var(--ink-3);font-size:13px;padding:34px 14px!important;font-style:italic}
+.scan-count{font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-3);margin:-8px 0 14px}
+.scan-prev{display:grid;grid-template-columns:1fr 1fr;gap:9px 16px;background:#fdf9f1;border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin:-4px 0 14px}
+.scan-prev div{display:flex;flex-direction:column;gap:1px}
+.scan-prev span{font-family:"Oswald";font-weight:500;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-3)}
+.scan-prev b{font-size:14px;color:var(--ink)}
+.scan-bad{color:var(--danger);font-size:12px;margin:-6px 0 12px}
+.drop{display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;cursor:pointer;
+  border:2px dashed var(--line);border-radius:12px;padding:26px 18px;color:var(--ink-2);background:#fdfaf3;
+  margin-bottom:14px;transition:border-color .15s,background .15s}
+.drop:hover{border-color:var(--ferro);color:var(--ferro)}
+.drop.over{border-color:var(--ferro);background:#fff4ec;color:var(--ferro)}
+.drop span{font-size:13px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -508,6 +520,37 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 <div class="toast" id="toast"><span class="dotc"></span><span id="toast-msg"></span></div>
 <div class="demobar" id="demobar">
   <span><b>Modo demonstração</b> — dados locais, sem sincronização. Configure o Firebase para salvar e sincronizar entre computadores.</span>
+</div>
+<div class="modal-bg" id="xml-modal">
+  <div class="modal" style="max-width:480px">
+    <h3>Dar entrada por XML</h3>
+    <p class="em-note">Selecione o arquivo <b>.xml</b> da NF-e (o que o fornecedor envia). O sistema lê todos os produtos automaticamente e dá entrada na nota.</p>
+    <label class="drop" id="xml-drop">
+      <input type="file" id="xml-file" accept=".xml,text/xml,application/xml" hidden>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0 4 4m-4-4-4 4M5 20h14"/></svg>
+      <span id="xml-drop-text">Clique para escolher ou arraste o arquivo .xml aqui</span>
+    </label>
+    <div id="xml-info"></div>
+    <div class="login-err" id="xml-err"></div>
+    <div class="modal-act">
+      <button class="btn" id="xml-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="xml-save" type="button" disabled>Dar entrada</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="scan-modal">
+  <div class="modal">
+    <h3>Bipar nota fiscal</h3>
+    <p class="em-note">Passe o leitor no código de barras da DANFE, ou digite a chave de acesso (44 dígitos). A nota entra no sistema e os produtos são importados da SEFAZ pelo serviço fiscal.</p>
+    <label class="fl" for="scan-key">Chave de acesso</label>
+    <input class="fi mono" id="scan-key" inputmode="numeric" autocomplete="off" placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000">
+    <div id="scan-info"></div>
+    <div class="login-err" id="scan-err"></div>
+    <div class="modal-act">
+      <button class="btn" id="scan-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="scan-save" type="button">Dar entrada</button>
+    </div>
+  </div>
 </div>
 <div class="modal-bg" id="user-modal">
   <div class="modal">
@@ -644,14 +687,16 @@ const SCREENS = {
          "Cor roxa identifica origem por Pedido de Compra."],
   },
   nf:{
-    eyebrow:"Filas", title:"Notas Fiscais", subtitle:"Importação, conferência e status",
+    eyebrow:"Filas", title:"Notas Fiscais", subtitle:"Bipe a nota para dar entrada — produtos vêm da SEFAZ",
     kpis:[
       {val:"4", lab:"Aguardando vínculo",sub:"com PC",tone:"warn"},
       {val:"16",lab:"Conferidas",sub:"sem pendência",tone:"ok"},
       {val:"5", lab:"Com divergência",sub:"precisam fiscal",tone:"danger"},
     ],
-    info:{b:"Importação da NF.",t:"A IA extrai dados da NF: número, fornecedor, CNPJ, produtos, referência, descrição, cor, tamanho, quantidade, valores e impostos."},
-    cols:[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Alertas",t:"alert"}],
+    scanBtn:"Bipar nota",
+    xmlBtn:"Dar entrada por XML",
+    info:{b:"Bipagem da NF.",t:"Passe o leitor no código de barras da DANFE (ou digite a chave de 44 dígitos). O sistema dá entrada na nota; os produtos são importados da SEFAZ pelo serviço fiscal."},
+    cols:[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Origem",t:"text"}],
     rows:[
       ["7522","Goyazes","00.000.000/0001-00","84","Cadastro ERP","⚠ 2 diverg."],
       ["7527","Resistol","22.222.222/0001-00","58","Fiscal","Aguardando"],
@@ -1152,6 +1197,18 @@ function buildTable(s){
     b.onclick=()=>go(s.extraBtn.go);
     head.appendChild(b);
   }
+  if(s.scanBtn){
+    const b=el("button","btn",`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg> ${s.scanBtn}`);
+    b.style.fontSize="12.5px";b.style.padding="6px 12px";
+    b.onclick=openScan;
+    head.appendChild(b);
+  }
+  if(s.xmlBtn){
+    const b=el("button","btn btn-primary",`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5M9 13h6M9 17h6M7 21h10a2 2 0 0 0 2-2V8l-5-5H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg> ${s.xmlBtn}`);
+    b.style.fontSize="12.5px";b.style.padding="6px 12px";
+    b.onclick=openXml;
+    head.appendChild(b);
+  }
   if(s.newBtn){
     const b=el("button","btn btn-primary",`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg> ${s.newBtn}`);
     b.style.fontSize="12.5px";b.style.padding="6px 12px";
@@ -1204,7 +1261,7 @@ function buildTable(s){
   }
   s.rows.forEach((r,ri)=>{
     const tr=el("tr");tr.dataset.ri=ri;
-    if(s.openDetail){tr.className="clickable";tr.onclick=e=>{if(!e.target.closest("[data-act]"))go("nfdetail");};}
+    if(s.onRow||s.openDetail){tr.className="clickable";const _i=ri;tr.onclick=e=>{if(e.target.closest("[data-act]"))return;s.onRow?s.onRow(_i):go("nfdetail");};}
     tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
     tbody.appendChild(tr);
   });
@@ -1232,7 +1289,7 @@ function applyFilter(s,f,wrap){
   }
   rows.forEach((r,ri)=>{
     const tr=el("tr");tr.dataset.ri=ri;
-    if(s.openDetail){tr.className="clickable";tr.onclick=e=>{if(!e.target.closest("[data-act]"))go("nfdetail");};}
+    if(s.onRow||s.openDetail){tr.className="clickable";const _i=ri;tr.onclick=e=>{if(e.target.closest("[data-act]"))return;s.onRow?s.onRow(_i):go("nfdetail");};}
     tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
     tbody.appendChild(tr);
   });
@@ -1455,6 +1512,20 @@ function go(id){
   if(id==="cover"){ setTopbar("Texas Center","Visão geral","Sistema de Gestão de Recebimento, Cadastro e Publicação"); view.appendChild(renderCover()); return; }
   if(id==="flow"){ setTopbar("Mapa de fluxos","Mapa de fluxos","Fluxo nacional e fluxo importado"); view.appendChild(renderFlow()); return; }
   if(id==="nfdetail"){
+    if(SELECTED_NF){
+      setTopbar("Notas Fiscais","Detalhe da NF","NF "+(SELECTED_NF.numero||"")+" — "+(SELECTED_NF.fornecedor||""));
+      const content=el("div","content");
+      const left=el("div");left.appendChild(renderNfView(SELECTED_NF));
+      content.appendChild(left);
+      content.appendChild(buildMap({title:"Detalhe da NF",map:[
+        "Cabeçalho resume número, fornecedor, status e total da nota.",
+        "Os produtos vêm do XML — referência, descrição, NCM, CFOP, quantidade e valores.",
+        "Cada linha é um item da nota fiscal.",
+        "A entrada por XML preenche todos os itens automaticamente.",
+        "Depois a nota segue para Conferência e Fiscal."]}));
+      view.appendChild(content);
+      return;
+    }
     setTopbar(NF_DETAIL.eyebrow,NF_DETAIL.title,NF_DETAIL.subtitle);
     const content=el("div","content");
     const left=el("div");left.appendChild(renderNfDetail());
@@ -1470,6 +1541,8 @@ function go(id){
       s.rows=LIVE_LOGS.map(l=>[fmtTs(l.ts),l.usuario||"",l.modulo||"",l.campo||"",l.antes||"",l.depois||"",l.motivo||(l.device?("· "+l.device):"")]);
     if(id==="usuarios" && LIVE_USERS.length)
       s.rows=LIVE_USERS.map(u=>[u.name||"",u.login||u.email||"",ROLE_LABEL[u.role]||u.role||"",pagesSummary(u),u.status||"Ativo","Editar acesso"]);
+    if(id==="nf" && LIVE_NFS.length)
+      s.rows=LIVE_NFS.map(n=>[n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"Aguardando importação",n.origem==="bipagem"?"Bipada":"Manual"]);
   }
   setTopbar(s.eyebrow,s.title,s.subtitle);
 
@@ -1528,7 +1601,7 @@ const BOOTSTRAP = {
 let signingUp=false;
 
 let FB_ENABLED=false, auth=null, db=null;
-let LIVE_LOGS=[], LIVE_USERS=[], unsub=[];
+let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], unsub=[];
 
 function initFirebase(){
   try{
@@ -1605,8 +1678,199 @@ function startLiveSync(){
       if(current==="usuarios") go("usuarios");
     }, e=>console.warn("users:",e)));
   }
+  if(CURRENT_ROLE==="gestor"||CURRENT_ROLE==="operador"){
+    unsub.push(db.collection("nfs").orderBy("ts","desc").limit(300).onSnapshot(s=>{
+      LIVE_NFS=s.docs.map(d=>({id:d.id, ...d.data()}));
+      if(current==="nf") go("nf");
+    }, e=>console.warn("nfs:",e)));
+  }
 }
-function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; }
+function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; }
+
+/* ---- entrada por XML: lê todos os produtos da NF-e ---- */
+let SELECTED_NF=null, PARSED_NF=null;
+function fmtCnpj(v){ v=(v||"").replace(/\D/g,""); return v.length===14?v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,"$1.$2.$3/$4-$5"):(v||""); }
+function brMoney(v){ const n=parseFloat(v); return isNaN(n)?(v||""):n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function brNum(v){ const n=parseFloat(v); return isNaN(n)?(v||""):n.toLocaleString("pt-BR",{maximumFractionDigits:3}); }
+
+function parseNfeXml(text){
+  const doc=new DOMParser().parseFromString(text,"application/xml");
+  if(doc.getElementsByTagName("parsererror").length) throw new Error("Arquivo XML inválido.");
+  const infNFe=doc.getElementsByTagName("infNFe")[0];
+  if(!infNFe) throw new Error("Não parece um XML de NF-e.");
+  const g=(scope,tag)=>{ if(!scope) return ""; const n=scope.getElementsByTagName(tag); return n.length?n[0].textContent.trim():""; };
+  const ide=doc.getElementsByTagName("ide")[0];
+  const emit=doc.getElementsByTagName("emit")[0];
+  const dest=doc.getElementsByTagName("dest")[0];
+  const tot=doc.getElementsByTagName("ICMSTot")[0];
+  const chave=(infNFe.getAttribute("Id")||"").replace(/^NFe/,"") || g(doc,"chNFe");
+  const produtos=[...doc.getElementsByTagName("det")].map(d=>{
+    const prod=d.getElementsByTagName("prod")[0];
+    const imp=d.getElementsByTagName("imposto")[0];
+    return {
+      item:d.getAttribute("nItem")||"", ref:g(prod,"cProd"), ean:g(prod,"cEAN"),
+      descricao:g(prod,"xProd"), ncm:g(prod,"NCM"), cfop:g(prod,"CFOP"), cest:g(prod,"CEST"),
+      unidade:g(prod,"uCom"), qtd:g(prod,"qCom"), vUnit:g(prod,"vUnCom"), vTotal:g(prod,"vProd"),
+      icms:g(imp,"vICMS"), ipi:g(imp,"vIPI")
+    };
+  });
+  if(!produtos.length) throw new Error("O XML não tem produtos (det).");
+  return {
+    chave, numero:g(ide,"nNF"), serie:g(ide,"serie"), modelo:g(ide,"mod"), natOp:g(ide,"natOp"),
+    dataEmissao:(g(ide,"dhEmi")||g(ide,"dEmi")||"").slice(0,10),
+    emitenteCnpj:fmtCnpj(g(emit,"CNPJ")), fornecedor:g(emit,"xNome"),
+    destCnpj:fmtCnpj(g(dest,"CNPJ")||g(dest,"CPF")), destNome:g(dest,"xNome"),
+    vNF:g(tot,"vNF"), produtos
+  };
+}
+
+function renderNfView(nf){
+  const frag=document.createDocumentFragment();
+  const head=el("div","nfhead");
+  head.innerHTML=`<div class="top">
+      <h2>NF ${esc(nf.numero||"")} — ${esc(nf.fornecedor||nf.emitenteCnpj||"")}</h2>
+      <div class="meta">
+        <span class="badge ${toneClass(nf.status||"")}"><span class="dot"></span>${esc(nf.status||"—")}</span>
+        <span class="badge b-muted">Série ${esc(nf.serie||"—")}</span>
+        <span class="badge b-process">${(nf.produtos||[]).length} produtos</span>
+        ${nf.vNF?`<span class="badge b-ok">Total R$ ${esc(brMoney(nf.vNF))}</span>`:""}
+      </div>
+    </div>
+    <div class="histbar"><b>Dados da nota</b>
+      <span class="ev">Emitente <span class="mono">${esc(nf.emitenteCnpj||"")}</span></span>
+      <span style="color:#cbb">·</span>
+      <span class="ev">Destinatário ${esc(nf.destNome||"—")}</span>
+      <span style="color:#cbb">·</span>
+      <span class="ev">Emissão <span class="t">${esc(nf.dataEmissao||"—")}</span></span>
+      <span style="color:#cbb">·</span>
+      <span class="ev">Origem ${nf.origem==="xml"?"Entrada por XML":nf.origem==="bipagem"?"Bipagem":"—"}</span>
+    </div>
+    ${nf.chave?`<div class="histbar" style="margin-top:8px"><b>Chave de acesso</b><span class="mono" style="font-size:12px">${esc(nf.chave)}</span></div>`:""}`;
+  frag.appendChild(head);
+  const panel=el("div","panel");
+  panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2><span class="badge b-muted">${(nf.produtos||[]).length} itens</span>`));
+  const tw=el("div","tbl-wrap");const tbl=el("table");
+  const ps=nf.produtos||[];
+  const body = !ps.length
+    ? `<tr><td colspan="8" class="empty-row">Sem produtos nesta nota.</td></tr>`
+    : ps.map(p=>`<tr>
+        <td class="mono">${esc(p.ref||"")}</td>
+        <td>${esc(p.descricao||"")}</td>
+        <td class="mono">${esc(p.ncm||"")}</td>
+        <td class="mono">${esc(p.cfop||"")}</td>
+        <td>${esc(brNum(p.qtd))}</td>
+        <td>${esc(p.unidade||"")}</td>
+        <td class="mono">${esc(brMoney(p.vUnit))}</td>
+        <td class="mono">${esc(brMoney(p.vTotal))}</td></tr>`).join("");
+  tbl.innerHTML=`<thead><tr>
+      <th class="mono">Ref</th><th>Descrição</th><th class="mono">NCM</th><th class="mono">CFOP</th>
+      <th>Qtd</th><th>Un</th><th class="mono">V. Unit</th><th class="mono">V. Total</th></tr></thead><tbody>${body}</tbody>`;
+  tw.appendChild(tbl);panel.appendChild(tw);frag.appendChild(panel);
+  return frag;
+}
+
+function openNfDetail(nf){ SELECTED_NF=nf; go("nfdetail"); }
+
+function openXml(){ PARSED_NF=null; $("#xml-info").innerHTML=""; $("#xml-err").classList.remove("show"); $("#xml-drop-text").textContent="Clique para escolher ou arraste o arquivo .xml aqui"; $("#xml-save").disabled=true; $("#xml-file").value=""; $("#xml-modal").classList.add("show"); }
+function closeXml(){ $("#xml-modal").classList.remove("show"); }
+function xmlErr(m){ const e=$("#xml-err"); e.textContent=m; e.classList.add("show"); }
+function handleXmlFile(file){
+  if(!file) return;
+  $("#xml-drop-text").textContent=file.name;
+  const r=new FileReader();
+  r.onload=()=>{ try{ PARSED_NF=parseNfeXml(r.result); showXmlPreview(PARSED_NF); $("#xml-save").disabled=false; }
+    catch(err){ PARSED_NF=null; $("#xml-save").disabled=true; $("#xml-info").innerHTML=""; xmlErr(err.message||"Não foi possível ler o XML."); } };
+  r.onerror=()=>xmlErr("Falha ao ler o arquivo.");
+  r.readAsText(file,"UTF-8");
+}
+function showXmlPreview(nf){
+  $("#xml-err").classList.remove("show");
+  $("#xml-info").innerHTML=`<div class="scan-prev">
+     <div><span>Fornecedor</span><b>${esc(nf.fornecedor||"—")}</b></div>
+     <div><span>NF nº / Série</span><b>${esc(nf.numero||"—")} / ${esc(nf.serie||"—")}</b></div>
+     <div><span>Destinatário</span><b>${esc(nf.destNome||"—")}</b></div>
+     <div><span>Produtos</span><b>${(nf.produtos||[]).length} itens</b></div>
+     <div><span>Emissão</span><b>${esc(nf.dataEmissao||"—")}</b></div>
+     <div><span>Total</span><b>R$ ${esc(brMoney(nf.vNF))}</b></div>
+   </div>`;
+}
+function saveXml(){
+  if(!PARSED_NF){ xmlErr("Escolha um arquivo .xml primeiro."); return; }
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ xmlErr("Configure o Firebase para dar entrada."); return; }
+  const nf=PARSED_NF; $("#xml-save").disabled=true;
+  db.collection("nfs").add({
+    chave:nf.chave, numero:nf.numero, serie:nf.serie, modelo:nf.modelo, natOp:nf.natOp,
+    emitenteCnpj:nf.emitenteCnpj, fornecedor:nf.fornecedor, destCnpj:nf.destCnpj, destNome:nf.destNome,
+    dataEmissao:nf.dataEmissao, vNF:nf.vNF, produtos:nf.produtos,
+    status:"Conferência", origem:"xml",
+    criadoPor:CURRENT_USER.name, ts:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    recordAction("Notas Fiscais","Entrada por XML","","NF "+nf.numero+" — "+nf.produtos.length+" produtos");
+    toast("NF "+nf.numero+" importada — "+nf.produtos.length+" produtos");
+    closeXml();
+  }).catch(e=>xmlErr("Erro ao salvar: "+(e.message||e)))
+   .finally(()=>{ $("#xml-save").disabled=false; });
+}
+
+/* clique na linha da NF abre o detalhe com os produtos */
+SCREENS.nf.onRow=(ri)=>{ if(FB_ENABLED && LIVE_NFS[ri]) openNfDetail(LIVE_NFS[ri]); else go("nfdetail"); };
+
+/* ---- bipagem da NF: chave de acesso de 44 dígitos ---- */
+const UF_COD={11:"RO",12:"AC",13:"AM",14:"RR",15:"PA",16:"AP",17:"TO",21:"MA",22:"PI",23:"CE",24:"RN",25:"PB",26:"PE",27:"AL",28:"SE",29:"BA",31:"MG",32:"ES",33:"RJ",35:"SP",41:"PR",42:"SC",43:"RS",50:"MS",51:"MT",52:"GO",53:"DF"};
+function dvChave(k43){
+  const pesos=[2,3,4,5,6,7,8,9]; let soma=0,p=0;
+  for(let i=k43.length-1;i>=0;i--){ soma+=parseInt(k43[i],10)*pesos[p%8]; p++; }
+  const r=soma%11; return (r===0||r===1)?0:11-r;
+}
+function decodeChave(k){
+  const cnpj=k.slice(6,20);
+  return {
+    uf: UF_COD[k.slice(0,2)]||k.slice(0,2),
+    data: k.slice(4,6)+"/20"+k.slice(2,4),
+    modelo: k.slice(20,22),
+    serie: String(parseInt(k.slice(22,25),10)),
+    numero: String(parseInt(k.slice(25,34),10)),
+    cnpj: cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,"$1.$2.$3/$4-$5"),
+  };
+}
+function openScan(){ $("#scan-key").value=""; $("#scan-info").innerHTML=""; $("#scan-err").classList.remove("show"); $("#scan-modal").classList.add("show"); setTimeout(()=>$("#scan-key").focus(),60); }
+function closeScan(){ $("#scan-modal").classList.remove("show"); }
+function scanErr(m){ const e=$("#scan-err"); e.textContent=m; e.classList.add("show"); }
+function scanPreview(){
+  const k=($("#scan-key").value||"").replace(/\D/g,"");
+  $("#scan-err").classList.remove("show");
+  if(k.length<44){ $("#scan-info").innerHTML=`<div class="scan-count">${k.length}/44 dígitos</div>`; return false; }
+  const d=decodeChave(k);
+  const ok=dvChave(k.slice(0,43))===parseInt(k[43],10);
+  $("#scan-info").innerHTML=`<div class="scan-prev">
+      <div><span>NF nº</span><b>${d.numero}</b></div>
+      <div><span>Série</span><b>${d.serie}</b></div>
+      <div><span>Modelo</span><b>${d.modelo==="55"?"55 (NF-e)":d.modelo==="65"?"65 (NFC-e)":d.modelo}</b></div>
+      <div><span>UF</span><b>${d.uf}</b></div>
+      <div><span>Emissão</span><b>${d.data}</b></div>
+      <div><span>CNPJ emitente</span><b class="mono">${d.cnpj}</b></div>
+    </div>${ok?'':'<div class="scan-bad">Dígito verificador não confere — confira a leitura.</div>'}`;
+  return ok;
+}
+function saveScan(){
+  const k=($("#scan-key").value||"").replace(/\D/g,"");
+  if(k.length!==44){ scanErr("A chave precisa ter 44 dígitos."); return; }
+  if(dvChave(k.slice(0,43))!==parseInt(k[43],10)){ scanErr("Chave inválida (dígito verificador não confere)."); return; }
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ scanErr("Configure o Firebase para dar entrada nas notas."); return; }
+  const d=decodeChave(k);
+  $("#scan-save").disabled=true;
+  db.collection("nfs").add({
+    chave:k, numero:d.numero, serie:d.serie, modelo:d.modelo, uf:d.uf,
+    emitenteCnpj:d.cnpj, dataEmissao:d.data, fornecedor:"", produtos:[],
+    status:"Aguardando importação", origem:"bipagem",
+    criadoPor:CURRENT_USER.name, ts:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    recordAction("Notas Fiscais","Bipagem","","NF "+d.numero+" — entrada por bipagem");
+    toast("NF "+d.numero+" registrada — aguardando produtos da SEFAZ");
+    closeScan();
+  }).catch(e=>scanErr("Erro ao salvar: "+(e.message||e)))
+   .finally(()=>{ $("#scan-save").disabled=false; });
+}
 
 function pagesSummary(u){
   if(u.role==="gestor") return "todas";
@@ -1847,6 +2111,20 @@ $("#em-cancel").onclick=closeEditUser;
 $("#em-save").onclick=saveEditUser;
 $("#em-role").onchange=togglePageGrid;
 $("#edit-modal").addEventListener("click",e=>{ if(e.target.id==="edit-modal") closeEditUser(); });
+$("#scan-cancel").onclick=closeScan;
+$("#scan-save").onclick=saveScan;
+$("#scan-modal").addEventListener("click",e=>{ if(e.target.id==="scan-modal") closeScan(); });
+$("#scan-key").addEventListener("input",scanPreview);
+$("#scan-key").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); saveScan(); } });
+$("#xml-cancel").onclick=closeXml;
+$("#xml-save").onclick=saveXml;
+$("#xml-modal").addEventListener("click",e=>{ if(e.target.id==="xml-modal") closeXml(); });
+$("#xml-file").addEventListener("change",e=>handleXmlFile(e.target.files[0]));
+(function(){ const d=$("#xml-drop");
+  d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("over");});
+  d.addEventListener("dragleave",()=>d.classList.remove("over"));
+  d.addEventListener("drop",e=>{e.preventDefault();d.classList.remove("over");handleXmlFile(e.dataTransfer.files[0]);});
+})();
 
 $("#livepill").textContent = FB_ENABLED ? "Ao vivo" : "Local";
 $("#livepill").className = FB_ENABLED ? "livepill on" : "livepill";
