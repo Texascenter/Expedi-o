@@ -400,6 +400,7 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .boot-spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--ferro);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .boot p{font-size:12.5px;font-family:"Oswald";letter-spacing:1px;text-transform:uppercase;margin:0}
+.empty-row{text-align:center;color:var(--ink-3);font-size:13px;padding:34px 14px!important;font-style:italic}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -1196,6 +1197,11 @@ function buildTable(s){
   s.cols.forEach(c=>trh.appendChild(el("th",c.t==="mono"?"mono":null,esc(c.k))));
   thead.appendChild(trh);tbl.appendChild(thead);
   const tbody=el("tbody");tbody.id="tbody";
+  if(!s.rows.length){
+    const tr=el("tr");
+    tr.innerHTML=`<td colspan="${s.cols.length}" class="empty-row">Nenhum registro ainda.</td>`;
+    tbody.appendChild(tr);
+  }
   s.rows.forEach((r,ri)=>{
     const tr=el("tr");tr.dataset.ri=ri;
     if(s.openDetail){tr.className="clickable";tr.onclick=e=>{if(!e.target.closest("[data-act]"))go("nfdetail");};}
@@ -1218,7 +1224,13 @@ function wireActs(wrap,s){
 function applyFilter(s,f,wrap){
   const tbody=wrap.querySelector("#tbody");tbody.innerHTML="";
   const pred=s.rowFilter?s.rowFilter():null;
-  s.rows.filter(r=>{if(f==="Todos"||!pred)return true;const p=s.rowFilter(r);return p[f];}).forEach((r,ri)=>{
+  const rows=s.rows.filter(r=>{if(f==="Todos"||!pred)return true;const p=s.rowFilter(r);return p[f];});
+  if(!rows.length){
+    const tr=el("tr");
+    tr.innerHTML=`<td colspan="${s.cols.length}" class="empty-row">Nenhum registro ainda.</td>`;
+    tbody.appendChild(tr);
+  }
+  rows.forEach((r,ri)=>{
     const tr=el("tr");tr.dataset.ri=ri;
     if(s.openDetail){tr.className="clickable";tr.onclick=e=>{if(!e.target.closest("[data-act]"))go("nfdetail");};}
     tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
@@ -1352,6 +1364,13 @@ function renderChart(){
   const panel=el("div","panel");
   panel.appendChild(el("div","panel-head",`<h2>Evolução mensal — divergências e retrabalho</h2>`));
   const months=["Jan","Fev","Mar","Abr","Mai","Jun"];
+  const zero=SCREENS.mc&&SCREENS.mc.chartZero;
+  if(zero){
+    const cw=el("div","chartwrap");
+    cw.innerHTML=`<div class="empty-row" style="font-style:italic">Sem dados ainda — os indicadores aparecem conforme a operação acontece.</div>`;
+    panel.appendChild(cw);
+    return panel;
+  }
   const div=[68,61,55,47,44,42], ret=[41,38,33,30,27,25];
   const W=720,H=260,P=34, max=72;
   const bw=18,gap=8, group=(W-P*2)/months.length;
@@ -1521,6 +1540,25 @@ function initFirebase(){
   }catch(e){ console.warn("Firebase indisponível:",e); return false; }
 }
 FB_ENABLED=initFirebase();
+
+/* começa zerado quando conectado ao Firebase (os dados embutidos são só demonstração) */
+function zeroVal(v){
+  v=String(v);
+  if(/%$/.test(v)) return "0%";
+  if(/^[−-]?[\d.]+$/.test(v)) return "0";
+  return "—";
+}
+function zeroSeedData(){
+  const ids=["fg","pc","nf","vn","ex","dv","fi","co","er","st","ft","et","cr","op","pr","ql","lg","usuarios"];
+  ids.forEach(id=>{
+    const s=SCREENS[id]; if(!s) return;
+    if(s.rows) s.rows=[];
+    if(s.kpis) s.kpis=s.kpis.map(k=>({...k, val:zeroVal(k.val)}));
+  });
+  if(SCREENS.mc){ if(SCREENS.mc.kpis) SCREENS.mc.kpis=SCREENS.mc.kpis.map(k=>({...k,val:"—"})); SCREENS.mc.chartZero=true; }
+  if(SCREENS.fi) SCREENS.fi.actions=[];
+}
+if(FB_ENABLED) zeroSeedData();
 
 function emailFor(login){ return login.includes("@") ? login : (login + AUTH_EMAIL_DOMAIN); }
 function fbError(err){
