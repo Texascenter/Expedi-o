@@ -354,6 +354,7 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .login-go{width:100%;justify-content:center;padding:12px;font-size:14.5px;font-family:"Oswald";font-weight:500;letter-spacing:.6px}
 .login-err{display:none;background:var(--danger-bg);color:var(--danger);border:1px solid #f0c4bf;border-radius:9px;padding:9px 12px;font-size:12.5px;margin-bottom:13px}
 .login-err.show{display:block}
+.login-err.okmsg{background:var(--ok-bg);color:var(--ok);border-color:#bfe0cb}
 .lc-hint{margin:16px 0 0;font-size:12px;color:var(--ink-3);line-height:1.65;text-align:center}
 .lc-hint b{color:var(--ink-2);font-weight:600}
 .lc-hint code{font-family:"IBM Plex Mono";font-size:11.5px;background:#f0e8d8;color:var(--ferro-2);padding:1px 6px;border-radius:5px}
@@ -434,7 +435,7 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
         <input class="fi" id="lg-pass" type="password" placeholder="••••••" autocomplete="current-password">
         <div class="login-err" id="login-err"></div>
         <button class="btn btn-primary login-go" id="login-go" type="button">Entrar →</button>
-        <p class="lc-switch">Não tem conta? <a id="to-signup" tabindex="0">Criar conta</a></p>
+        <p class="lc-switch">Não tem conta? <a id="to-signup" tabindex="0">Criar conta</a> &nbsp;·&nbsp; <a id="forgot" tabindex="0">Esqueci a senha</a></p>
         <p class="lc-hint" id="demo-hint">Modo demonstração — senha <code>texasflow</code>:<br>
           <b>rayllan</b> (ADM) · <b>davi.nascimento</b> (Super ADM) · <b>joao</b> (comum)</p>
       </div>
@@ -1727,20 +1728,42 @@ function logout(){
   if(FB_ENABLED && auth){ auth.signOut().catch(()=>{}).then(finish); } else finish();
 }
 function loginFail(msg){
-  const e=$("#login-err");e.textContent=msg;e.classList.add("show");
+  const e=$("#login-err");e.textContent=msg;e.classList.add("show");e.classList.remove("okmsg");
   const card=document.querySelector(".login-card");
   card.classList.remove("shake");void card.offsetWidth;card.classList.add("shake");
+}
+function resetPass(){
+  const raw=$("#lg-user").value.trim().toLowerCase();
+  if(!raw||!raw.includes("@")){ loginFail("Digite seu e-mail no campo acima e clique de novo em Esqueci a senha."); return; }
+  if(!(FB_ENABLED&&auth)){ loginFail("Disponível com o Firebase configurado."); return; }
+  auth.sendPasswordResetEmail(raw)
+    .then(()=>{ const e=$("#login-err"); e.textContent="Enviamos um e-mail para redefinir a senha de "+raw+". Confira a caixa de entrada."; e.classList.add("show","okmsg"); })
+    .catch(err=>loginFail(fbError(err)));
 }
 let loginBusy=false;
 function setLoginBusy(b){ loginBusy=b; const g=$("#login-go"); g.disabled=b; g.textContent=b?"Entrando…":"Entrar →"; }
 function loadProfileAndEnter(fbUser){
   db.collection("users").doc(fbUser.uid).get().then(snap=>{
     setLoginBusy(false);
-    if(!snap.exists){ showLoginScreen(); loginFail("Conta sem perfil cadastrado. Crie a conta de novo ou avise o administrador."); auth.signOut(); return; }
-    const d=snap.data();
-    if(!ROLES[d.role]){ showLoginScreen(); loginFail("Perfil inválido no cadastro: "+d.role); auth.signOut(); return; }
-    doLogin({uid:fbUser.uid, login:d.login||fbUser.email, name:d.name||fbUser.email, role:d.role, pages:d.pages||[]});
-    recordAction("Acesso","Login","","Entrou — "+DEVICE);
+    if(snap.exists){
+      const d=snap.data();
+      if(!ROLES[d.role]){ showLoginScreen(); loginFail("Perfil inválido no cadastro: "+d.role); auth.signOut(); return; }
+      doLogin({uid:fbUser.uid, login:d.login||fbUser.email, name:d.name||fbUser.email, role:d.role, pages:d.pages||[]});
+      recordAction("Acesso","Login","","Entrou — "+DEVICE);
+      return;
+    }
+    // conta sem perfil: cria automaticamente (e-mails de admin viram ADM/Super ADM; demais = comum)
+    const email=(fbUser.email||"").toLowerCase();
+    const boot=BOOTSTRAP[email];
+    const role=boot?boot.role:"comum";
+    const name=boot?boot.name:(fbUser.displayName||email.split("@")[0]);
+    db.collection("users").doc(fbUser.uid).set({
+      name, login: email.split("@")[0], email, role, pages:[], status:"Ativo",
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>{
+      doLogin({uid:fbUser.uid, login:email.split("@")[0], name, role, pages:[]});
+      recordAction("Acesso","Perfil criado","",name+" ("+ROLE_LABEL[role]+")");
+    }).catch(()=>{ showLoginScreen(); loginFail("Não foi possível criar o perfil — confira se as regras do Firestore foram publicadas."); auth.signOut(); });
   }).catch(()=>{ setLoginBusy(false); showLoginScreen(); loginFail("Falha ao carregar perfil. Tente novamente."); });
 }
 function attemptLogin(){
@@ -1774,6 +1797,7 @@ function showSignup(on){
 }
 $("#to-signup").onclick=()=>showSignup(true);
 $("#to-login").onclick=()=>showSignup(false);
+$("#forgot").onclick=resetPass;
 $("#signup-go").onclick=signUp;
 $("#su-pass").addEventListener("keydown",e=>{if(e.key==="Enter")signUp();});
 
