@@ -69,7 +69,12 @@ body{
 .nav::-webkit-scrollbar{width:7px}
 .nav::-webkit-scrollbar-thumb{background:#5a4530;border-radius:8px}
 .nav-group{font-family:"Oswald";font-weight:500;font-size:10.5px;letter-spacing:2px;
-  text-transform:uppercase;color:#9b8767;padding:14px 10px 6px}
+  text-transform:uppercase;color:#9b8767;padding:14px 10px 6px;display:flex;align-items:center;
+  justify-content:space-between;width:100%;background:transparent;border:0;cursor:pointer;text-align:left}
+.nav-group:hover{color:#c9b491}
+.nav-group .gchev{transition:transform .18s;opacity:.7;flex:0 0 auto}
+.nav-group.closed .gchev{transform:rotate(-90deg)}
+.nav-items.hidden{display:none}
 .nav-item{display:flex;gap:10px;align-items:center;width:100%;border:0;background:transparent;
   color:#ddcfb9;text-align:left;cursor:pointer;padding:7px 9px;border-radius:8px;font:inherit;
   font-size:13px;transition:background .15s,color .15s;position:relative}
@@ -414,6 +419,37 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .drop.over{border-color:var(--ferro);background:#fff4ec;color:var(--ferro)}
 .drop span{font-size:13px}
 .nf-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+
+/* minimizar barra lateral */
+.side-collapse{margin-left:auto;background:transparent;border:0;color:#b8a585;cursor:pointer;padding:6px;
+  border-radius:7px;display:grid;place-items:center;transition:color .15s,background .15s;flex:0 0 auto}
+.side-collapse:hover{color:#f1e6d3;background:rgba(233,221,202,.10)}
+.side-collapse svg{transition:transform .2s}
+.shell.collapsed{grid-template-columns:66px 1fr}
+.shell.collapsed .side-collapse svg{transform:rotate(180deg)}
+.shell.collapsed .brand{justify-content:center;padding:18px 6px 14px;gap:0}
+.shell.collapsed .brand-txt{display:none}
+.shell.collapsed .nav-group{justify-content:center;padding:12px 4px 4px}
+.shell.collapsed .nav-group span,.shell.collapsed .gchev{display:none}
+.shell.collapsed .nav-items.hidden{display:flex;flex-direction:column}
+.shell.collapsed .nav-label{display:none}
+.shell.collapsed .nav-item{justify-content:center;padding:7px 4px}
+.shell.collapsed .nav-item.active::before{left:-4px}
+.shell.collapsed .side-user{justify-content:center;padding:12px 6px}
+.shell.collapsed .side-user .u,.shell.collapsed .logout span{display:none}
+.shell.collapsed .nav{padding-left:6px;padding-right:6px}
+
+/* cronômetro */
+.stopwatch{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);
+  border-radius:9px;padding:3px 5px 3px 11px;flex:0 0 auto}
+.stopwatch.sw-running{border-color:var(--ferro);box-shadow:0 0 0 3px rgba(184,82,26,.10)}
+.sw-time{font-family:"IBM Plex Mono";font-size:13px;font-weight:600;color:var(--ink);min-width:52px;
+  text-align:center;font-variant-numeric:tabular-nums}
+.stopwatch.sw-running .sw-time{color:var(--ferro)}
+.sw-btn{background:transparent;border:0;cursor:pointer;width:26px;height:26px;border-radius:6px;display:grid;
+  place-items:center;color:var(--ink-2);transition:background .12s,color .12s}
+.sw-btn:hover{background:#f1ebdf;color:var(--ferro)}
+@media (max-width:900px){ .stopwatch{display:none} }
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -484,6 +520,9 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
     <div class="brand">
       <div class="brand-mark">TX</div>
       <div class="brand-txt"><b>Texas Flow</b><span>Cadastro de Produtos</span></div>
+      <button class="side-collapse" id="side-collapse" title="Minimizar menu" aria-label="Minimizar menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>
+      </button>
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="side-user" id="side-user"></div>
@@ -501,6 +540,15 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
         <p id="subtitle"></p>
       </div>
       <div class="tb-tools">
+        <div class="stopwatch" id="stopwatch" title="Cronômetro de atividade">
+          <span class="sw-time" id="sw-time">00:00</span>
+          <button class="sw-btn" id="sw-toggle" title="Iniciar / pausar" aria-label="Iniciar ou pausar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="sw-btn" id="sw-reset" title="Zerar" aria-label="Zerar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg>
+          </button>
+        </div>
         <span class="livepill" id="livepill" title="Estado da sincronização">Local</span>
         <label class="search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9c8f7d" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
@@ -521,6 +569,25 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 <div class="toast" id="toast"><span class="dotc"></span><span id="toast-msg"></span></div>
 <div class="demobar" id="demobar">
   <span><b>Modo demonstração</b> — dados locais, sem sincronização. Configure o Firebase para salvar e sincronizar entre computadores.</span>
+</div>
+<div class="modal-bg" id="corr-modal">
+  <div class="modal">
+    <h3>Solicitar correção</h3>
+    <p class="em-note">Registra um produto que voltou para retrabalho. Vira log e entra na taxa de retrabalho.</p>
+    <label class="fl" for="cr-prod">Produto / Referência</label>
+    <input class="fi" id="cr-prod" type="text" placeholder="ex.: 263208-CF">
+    <label class="fl" for="cr-motivo">Motivo</label>
+    <input class="fi" id="cr-motivo" type="text" placeholder="ex.: Cor, Tabela de medidas, Fotos">
+    <label class="fl" for="cr-antes">Antes</label>
+    <input class="fi" id="cr-antes" type="text" placeholder="como estava">
+    <label class="fl" for="cr-depois">Depois</label>
+    <input class="fi" id="cr-depois" type="text" placeholder="como ficou">
+    <div class="login-err" id="cr-err"></div>
+    <div class="modal-act">
+      <button class="btn" id="cr-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="cr-save" type="button">Registrar correção</button>
+    </div>
+  </div>
 </div>
 <div class="modal-bg" id="xml-modal">
   <div class="modal" style="max-width:480px">
@@ -1212,6 +1279,12 @@ function buildTable(s){
     b.onclick=openXml;
     head.appendChild(b);
   }
+  if(s.primaryBtn){
+    const b=el("button","btn btn-primary",`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg> ${s.primaryBtn.label}`);
+    b.style.fontSize="12.5px";b.style.padding="6px 12px";
+    b.onclick=s.primaryBtn.fn;
+    head.appendChild(b);
+  }
   if(s.newBtn){
     const b=el("button","btn btn-primary",`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg> ${s.newBtn}`);
     b.style.fontSize="12.5px";b.style.padding="6px 12px";
@@ -1481,19 +1554,26 @@ function landingFor(user){
   return "cover";
 }
 
+const collapsedGroups=new Set();
 function buildNav(){
   const nav=$("#nav");nav.innerHTML="";
   NAV.forEach(group=>{
     const items=group.items.filter(it=>!ALLOWED||ALLOWED.has(it.id));
     if(!items.length) return;
-    nav.appendChild(el("div","nav-group",group.grp));
+    const closed=collapsedGroups.has(group.grp);
+    const gh=el("button","nav-group"+(closed?" closed":""));
+    gh.innerHTML=`<span>${esc(group.grp)}</span><svg class="gchev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>`;
+    gh.onclick=()=>{ if(collapsedGroups.has(group.grp))collapsedGroups.delete(group.grp); else collapsedGroups.add(group.grp); buildNav(); };
+    nav.appendChild(gh);
+    const box=el("div","nav-items"+(closed?" hidden":""));
     items.forEach(it=>{
       const b=el("button","nav-item"+(it.id===current?" active":""));
-      b.dataset.id=it.id;
-      b.innerHTML=`<span class="sigla">${it.sig}</span><span>${esc(it.name)}</span>`;
+      b.dataset.id=it.id; b.title=it.name;
+      b.innerHTML=`<span class="sigla">${it.sig}</span><span class="nav-label">${esc(it.name)}</span>`;
       b.onclick=()=>go(it.id);
-      nav.appendChild(b);
+      box.appendChild(b);
     });
+    nav.appendChild(box);
   });
 }
 
@@ -1564,6 +1644,10 @@ function go(id){
       s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
       s.onAct=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
     }
+    if(id==="cr" && LIVE_CORR.length)
+      s.rows=LIVE_CORR.map(r=>[r.produto||"",r.motivo||"",r.solicitante||"",r.responsavel||"",r.antes||"",r.depois||"",r.tempo||"—"]);
+    if(id==="ft" && LIVE_FOTOS.length)
+      s.rows=LIVE_FOTOS.map(r=>[r.produto||"",r.usuario||"",r.fotos||"",r.tempo||"—",r.tempoEd||"—",r.status||"Registrado","Ver"]);
   }
   setTopbar(s.eyebrow,s.title,s.subtitle);
 
@@ -1622,7 +1706,7 @@ const BOOTSTRAP = {
 let signingUp=false;
 
 let FB_ENABLED=false, auth=null, db=null;
-let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], unsub=[];
+let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], LIVE_CORR=[], LIVE_FOTOS=[], unsub=[];
 
 function initFirebase(){
   try{
@@ -1705,9 +1789,59 @@ function startLiveSync(){
       if(SELECTED_NF){ const u=LIVE_NFS.find(n=>n.id===SELECTED_NF.id); if(u) SELECTED_NF=u; }
       if(["fg","nf","ex","dv","fi","er","st","et","op","nfdetail"].includes(current)) go(current);
     }, e=>console.warn("nfs:",e)));
+    unsub.push(db.collection("correcoes").orderBy("ts","desc").limit(200).onSnapshot(s=>{
+      LIVE_CORR=s.docs.map(d=>d.data());
+      if(current==="cr") go("cr");
+    }, e=>console.warn("correcoes:",e)));
+    unsub.push(db.collection("fotos").orderBy("ts","desc").limit(200).onSnapshot(s=>{
+      LIVE_FOTOS=s.docs.map(d=>d.data());
+      if(current==="ft") go("ft");
+    }, e=>console.warn("fotos:",e)));
   }
 }
-function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; }
+function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; LIVE_CORR=[]; LIVE_FOTOS=[]; }
+
+/* ---- cronômetro global (topo, vale no site inteiro) ---- */
+let swSec=0, swTimer=null;
+function swStr(){ const h=Math.floor(swSec/3600),m=Math.floor((swSec%3600)/60),s=swSec%60,p=n=>String(n).padStart(2,"0");
+  return (h>0?p(h)+":":"")+p(m)+":"+p(s); }
+function swRender(){ const t=$("#sw-time"); if(t) t.textContent=swStr(); }
+function swToggle(){
+  const sw=$("#stopwatch");
+  if(swTimer){ clearInterval(swTimer); swTimer=null; sw.classList.remove("sw-running"); $("#sw-toggle").innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
+  else { swTimer=setInterval(()=>{swSec++;swRender();},1000); sw.classList.add("sw-running"); $("#sw-toggle").innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'; }
+}
+function swReset(){ if(swTimer){clearInterval(swTimer);swTimer=null;} swSec=0; swRender(); const sw=$("#stopwatch"); if(sw)sw.classList.remove("sw-running"); $("#sw-toggle").innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
+
+/* ---- Correções ---- */
+function openCorr(){ ["cr-prod","cr-motivo","cr-antes","cr-depois"].forEach(i=>{const e=$("#"+i);if(e)e.value="";}); $("#cr-err").classList.remove("show"); $("#corr-modal").classList.add("show"); setTimeout(()=>$("#cr-prod").focus(),50); }
+function closeCorr(){ $("#corr-modal").classList.remove("show"); }
+function saveCorr(){
+  const prod=$("#cr-prod").value.trim(), motivo=$("#cr-motivo").value.trim();
+  const err=$("#cr-err");
+  if(!prod||!motivo){ err.textContent="Informe produto e motivo."; err.classList.add("show"); return; }
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ err.textContent="Configure o Firebase para registrar."; err.classList.add("show"); return; }
+  db.collection("correcoes").add({ produto:prod, motivo, antes:$("#cr-antes").value.trim(), depois:$("#cr-depois").value.trim(),
+    solicitante:CURRENT_USER.name, responsavel:CURRENT_USER.name, tempo:swStr()!=="00:00"?swStr():"—",
+    ts:firebase.firestore.FieldValue.serverTimestamp() })
+    .then(()=>{ recordAction("Correções","Solicitou correção","",prod+" — "+motivo); toast("Correção registrada"); closeCorr(); })
+    .catch(e=>{ err.textContent="Erro: "+(e.message||e); err.classList.add("show"); });
+}
+
+/* ---- Fotos (usa o cronômetro do topo) ---- */
+function openFoto(){
+  const prod=(prompt("Produto fotografado (referência ou descrição):")||"").trim();
+  if(!prod) return;
+  const qtd=(prompt("Quantas fotos foram feitas?","1")||"1").trim();
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase para registrar."); return; }
+  const tempo=swStr()!=="00:00"?swStr():"—";
+  db.collection("fotos").add({ produto:prod, fotos:qtd, usuario:CURRENT_USER.name, tempo, status:"Registrado",
+    ts:firebase.firestore.FieldValue.serverTimestamp() })
+    .then(()=>{ recordAction("Fotos","Registrou fotos","",prod+" — "+qtd+" fotos ("+tempo+")"); toast("Fotos registradas: "+prod); })
+    .catch(e=>toast("Erro: "+(e.message||e)));
+}
+SCREENS.cr.primaryBtn={label:"Solicitar correção", fn:openCorr};
+SCREENS.ft.primaryBtn={label:"Registrar fotos", fn:openFoto};
 
 /* ---- entrada por XML: lê todos os produtos da NF-e ---- */
 let SELECTED_NF=null, PARSED_NF=null;
@@ -1878,6 +2012,8 @@ function setKpisLive(id,s,c){
   else if(id==="st"){ set(0,c.site); set(1,0); set(2,0); }
   else if(id==="et"){ set(0,c.etiq); set(1,0); set(2,0); }
   else if(id==="op"){ set(0,c.andamento); set(1,c.fiscal); set(2,c.erp); set(3,c.site); set(4,c.conf); set(5,c.diverg); }
+  else if(id==="cr"){ set(0,LIVE_CORR.length); }
+  else if(id==="ft"){ set(0,LIVE_FOTOS.reduce((a,r)=>a+(parseInt(r.fotos)||0),0)); }
 }
 function nfRow(n){ return [n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"",n.responsavel||n.criadoPor||"—"]; }
 function advanceNf(nf,act){
@@ -2199,6 +2335,12 @@ $("#scan-save").onclick=saveScan;
 $("#scan-modal").addEventListener("click",e=>{ if(e.target.id==="scan-modal") closeScan(); });
 $("#scan-key").addEventListener("input",scanPreview);
 $("#scan-key").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); saveScan(); } });
+$("#side-collapse").onclick=()=>document.getElementById("shell").classList.toggle("collapsed");
+$("#sw-toggle").onclick=swToggle;
+$("#sw-reset").onclick=swReset;
+$("#cr-cancel").onclick=closeCorr;
+$("#cr-save").onclick=saveCorr;
+$("#corr-modal").addEventListener("click",e=>{ if(e.target.id==="corr-modal") closeCorr(); });
 $("#xml-cancel").onclick=closeXml;
 $("#xml-save").onclick=saveXml;
 $("#xml-modal").addEventListener("click",e=>{ if(e.target.id==="xml-modal") closeXml(); });
