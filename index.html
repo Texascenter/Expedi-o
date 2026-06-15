@@ -413,6 +413,7 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .drop:hover{border-color:var(--ferro);color:var(--ferro)}
 .drop.over{border-color:var(--ferro);background:#fff4ec;color:var(--ferro)}
 .drop span{font-size:13px}
+.nf-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -1537,12 +1538,28 @@ function go(id){
   const s=SCREENS[id];
   if(!s){ go("cover"); return; }
   if(FB_ENABLED){
+    const c=nfCounts();
+    setKpisLive(id,s,c);
     if(id==="lg" && LIVE_LOGS.length)
       s.rows=LIVE_LOGS.map(l=>[fmtTs(l.ts),l.usuario||"",l.modulo||"",l.campo||"",l.antes||"",l.depois||"",l.motivo||(l.device?("· "+l.device):"")]);
     if(id==="usuarios" && LIVE_USERS.length)
       s.rows=LIVE_USERS.map(u=>[u.name||"",u.login||u.email||"",ROLE_LABEL[u.role]||u.role||"",pagesSummary(u),u.status||"Ativo","Editar acesso"]);
-    if(id==="nf" && LIVE_NFS.length)
-      s.rows=LIVE_NFS.map(n=>[n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"Aguardando importação",n.origem==="bipagem"?"Bipada":"Manual"]);
+    if(id==="nf"){
+      const L=LIVE_NFS;
+      s.rows=L.map(n=>[n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"Aguardando importação",n.origem==="bipagem"?"Bipada":n.origem==="xml"?"XML":"Manual"]);
+      s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+    }
+    else if(id==="fg"){
+      const L=LIVE_NFS;
+      s.rows=L.map(n=>["NF",n.numero||"",n.fornecedor||"—",n.status||"",n.responsavel||n.criadoPor||"—",n.origem==="xml"?"XML":n.origem==="bipagem"?"Bipada":""]);
+      s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+    }
+    else if(STAGE_STATUS[id]){
+      const L=LIVE_NFS.filter(n=>(n.status||"")===STAGE_STATUS[id]);
+      s.cols=NF_LIST_COLS;
+      s.rows=L.map(nfRow);
+      s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+    }
   }
   setTopbar(s.eyebrow,s.title,s.subtitle);
 
@@ -1681,7 +1698,8 @@ function startLiveSync(){
   if(CURRENT_ROLE==="gestor"||CURRENT_ROLE==="operador"){
     unsub.push(db.collection("nfs").orderBy("ts","desc").limit(300).onSnapshot(s=>{
       LIVE_NFS=s.docs.map(d=>({id:d.id, ...d.data()}));
-      if(current==="nf") go("nf");
+      if(SELECTED_NF){ const u=LIVE_NFS.find(n=>n.id===SELECTED_NF.id); if(u) SELECTED_NF=u; }
+      if(["fg","nf","ex","dv","fi","er","st","et","op","nfdetail"].includes(current)) go(current);
     }, e=>console.warn("nfs:",e)));
   }
 }
@@ -1747,6 +1765,12 @@ function renderNfView(nf){
     </div>
     ${nf.chave?`<div class="histbar" style="margin-top:8px"><b>Chave de acesso</b><span class="mono" style="font-size:12px">${esc(nf.chave)}</span></div>`:""}`;
   frag.appendChild(head);
+  const acts=STAGE_ACTIONS[nf.status]||[];
+  if(acts.length){
+    const bar=el("div","nf-actions");
+    acts.forEach(a=>{ const b=el("button","fa"+(a.cls?" "+a.cls:""),esc(a.l)); b.onclick=()=>advanceNf(nf,a); bar.appendChild(b); });
+    frag.appendChild(bar);
+  }
   const panel=el("div","panel");
   panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2><span class="badge b-muted">${(nf.produtos||[]).length} itens</span>`));
   const tw=el("div","tbl-wrap");const tbl=el("table");
@@ -1810,6 +1834,61 @@ function saveXml(){
     closeXml();
   }).catch(e=>xmlErr("Erro ao salvar: "+(e.message||e)))
    .finally(()=>{ $("#xml-save").disabled=false; });
+}
+
+/* ---- fluxo entre etapas (status da NF conecta as telas) ---- */
+const NF_LIST_COLS=[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Responsável",t:"text"}];
+const STAGE_STATUS={ ex:"Conferência", dv:"Divergência", fi:"Fiscal", er:"Cadastro ERP", st:"Cadastro Site", et:"Etiquetagem" };
+const STAGE_ACTIONS={
+  "Conferência":[{l:"Conferência OK",to:"Fiscal",cls:"go"},{l:"Devolver (divergência)",to:"Divergência",cls:"warn",reason:true}],
+  "Fiscal":[{l:"Liberar cadastro",to:"Cadastro ERP",cls:"go"},{l:"Devolver p/ conferência",to:"Conferência",cls:"warn",reason:true}],
+  "Cadastro ERP":[{l:"Concluir ERP → Site",to:"Cadastro Site",cls:"go"},{l:"Enviar p/ etiquetagem",to:"Etiquetagem"}],
+  "Cadastro Site":[{l:"Publicar (concluir)",to:"Concluído",cls:"go"}],
+  "Etiquetagem":[{l:"Loja liberada (concluir)",to:"Concluído",cls:"go"}],
+  "Divergência":[{l:"Resolver → Conferência",to:"Conferência",cls:"go"}],
+  "Aguardando importação":[{l:"Dar entrada por XML",to:null,xml:true,cls:"go"}],
+};
+function nfCounts(){
+  const c={total:LIVE_NFS.length,conf:0,fiscal:0,erp:0,site:0,etiq:0,concl:0,diverg:0,aguard:0,andamento:0,itensConf:0};
+  LIVE_NFS.forEach(n=>{
+    const s=n.status||"";
+    if(s==="Conferência"){c.conf++; c.itensConf+=(n.produtos&&n.produtos.length)||0;}
+    else if(s==="Fiscal")c.fiscal++;
+    else if(s==="Cadastro ERP")c.erp++;
+    else if(s==="Cadastro Site")c.site++;
+    else if(s==="Etiquetagem")c.etiq++;
+    else if(s==="Concluído")c.concl++;
+    else if(s==="Divergência")c.diverg++;
+    else if(s==="Aguardando importação")c.aguard++;
+    if(s!=="Concluído")c.andamento++;
+  });
+  return c;
+}
+function setKpisLive(id,s,c){
+  const set=(i,v)=>{ if(s.kpis&&s.kpis[i]) s.kpis[i].val=String(v); };
+  if(id==="fg"){ set(0,c.andamento); set(1,c.diverg); set(2,0); set(3,c.concl); }
+  else if(id==="nf"){ set(0,c.aguard); set(1,c.fiscal+c.erp+c.site+c.etiq+c.concl); set(2,c.diverg); }
+  else if(id==="ex"){ set(0,c.conf); set(1,c.itensConf); set(2,c.diverg); }
+  else if(id==="dv"){ set(0,c.diverg); set(1,0); set(2,0); }
+  else if(id==="er"){ set(0,c.erp); set(1,0); set(2,c.erp); }
+  else if(id==="st"){ set(0,c.site); set(1,0); set(2,0); }
+  else if(id==="et"){ set(0,c.etiq); set(1,0); set(2,0); }
+  else if(id==="op"){ set(0,c.andamento); set(1,c.fiscal); set(2,c.erp); set(3,c.site); set(4,c.conf); set(5,c.diverg); }
+}
+function nfRow(n){ return [n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"",n.responsavel||n.criadoPor||"—"]; }
+function advanceNf(nf,act){
+  if(act.xml){ openXml(); return; }
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
+  let motivo="";
+  if(act.reason){ motivo=(prompt("Motivo da devolução:")||"").trim(); if(!motivo){ toast("Informe o motivo para devolver."); return; } }
+  db.collection("nfs").doc(nf.id).update({
+    status:act.to, responsavel:CURRENT_USER.name,
+    hist: firebase.firestore.FieldValue.arrayUnion({de:nf.status||"",para:act.to,por:CURRENT_USER.name,motivo,em:new Date().toISOString()})
+  }).then(()=>{
+    recordAction("Fluxo NF",(nf.status||"")+" → "+act.to, nf.status||"", "NF "+nf.numero+(motivo?(" — "+motivo):""));
+    toast("NF "+nf.numero+" → "+act.to);
+    nf.status=act.to; nf.responsavel=CURRENT_USER.name; SELECTED_NF=nf; go("nfdetail");
+  }).catch(e=>toast("Erro: "+(e.message||e)));
 }
 
 /* clique na linha da NF abre o detalhe com os produtos */
