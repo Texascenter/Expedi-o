@@ -1244,6 +1244,8 @@ function cell(val,type){
       return /sim/i.test(val)?`<td><span class="yn-yes">✓ Sim</span></td>`:`<td><span class="yn-no">— Não</span></td>`;
     case "act":
       return `<td><button class="act" data-act>${v}</button></td>`;
+    case "del":
+      return `<td style="width:1%;text-align:right"><button class="del-btn" data-del title="Excluir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td>`;
     default: return `<td>${v}</td>`;
   }
 }
@@ -1337,7 +1339,7 @@ function buildTable(s){
   }
   s.rows.forEach((r,ri)=>{
     const tr=el("tr");tr.dataset.ri=ri;
-    if(s.onRow||s.openDetail){tr.className="clickable";const _i=ri;tr.onclick=e=>{if(e.target.closest("[data-act]"))return;s.onRow?s.onRow(_i):go("nfdetail");};}
+    if(s.onRow||s.openDetail){tr.className="clickable";const _i=ri;tr.onclick=e=>{if(e.target.closest("[data-act],[data-del]"))return;s.onRow?s.onRow(_i):go("nfdetail");};}
     tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
     tbody.appendChild(tr);
   });
@@ -1352,6 +1354,11 @@ function wireActs(wrap,s){
     const tr=b.closest("tr");const ri=tr?+tr.dataset.ri:-1;
     if(s.onAct){ s.onAct(ri); } else { doActBtn(b.textContent.trim()); }
   });
+  wrap.querySelectorAll("[data-del]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const tr=b.closest("tr");const ri=tr?+tr.dataset.ri:-1;
+    if(s.onDel) s.onDel(ri);
+  });
 }
 
 function applyFilter(s,f,wrap){
@@ -1365,7 +1372,7 @@ function applyFilter(s,f,wrap){
   }
   rows.forEach((r,ri)=>{
     const tr=el("tr");tr.dataset.ri=ri;
-    if(s.onRow||s.openDetail){tr.className="clickable";const _i=ri;tr.onclick=e=>{if(e.target.closest("[data-act]"))return;s.onRow?s.onRow(_i):go("nfdetail");};}
+    if(s.onRow||s.openDetail){tr.className="clickable";const _i=ri;tr.onclick=e=>{if(e.target.closest("[data-act],[data-del]"))return;s.onRow?s.onRow(_i):go("nfdetail");};}
     tr.innerHTML=s.cols.map((c,i)=>cell(r[i],c.t)).join("");
     tbody.appendChild(tr);
   });
