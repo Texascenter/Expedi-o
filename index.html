@@ -643,6 +643,8 @@ const NAV = [
 const SCREENS = {
   fg:{
     eyebrow:"Filas", title:"Fila Geral", subtitle:"Visão central por NF, PC e Vinculados",
+    scanBtn:"Bipar",
+    xmlBtn:"Dar entrada por XML",
     kpis:[
       {val:"28",lab:"Em andamento",sub:"todas as etapas",tone:"process"},
       {val:"5", lab:"Divergências",sub:"abertas",tone:"danger"},
@@ -1556,9 +1558,11 @@ function go(id){
     }
     else if(STAGE_STATUS[id]){
       const L=LIVE_NFS.filter(n=>(n.status||"")===STAGE_STATUS[id]);
-      s.cols=NF_LIST_COLS;
-      s.rows=L.map(nfRow);
+      const label={ex:"Conferir",dv:"Resolver",fi:"Analisar",er:"Cadastrar",st:"Publicar",et:"Etiquetar"}[id]||"Abrir";
+      s.cols=NF_LIST_COLS.concat([{k:"Ação",t:"act"}]);
+      s.rows=L.map(n=>nfRow(n).concat([label]));
       s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+      s.onAct=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
     }
   }
   setTopbar(s.eyebrow,s.title,s.subtitle);
