@@ -419,6 +419,31 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .drop.over{border-color:var(--ferro);background:#fff4ec;color:var(--ferro)}
 .drop span{font-size:13px}
 .nf-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.fa{font-family:"IBM Plex Sans";font-size:13px;font-weight:600;padding:9px 15px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;transition:all .14s}
+.fa:hover{border-color:var(--ferro);color:var(--ferro)}
+.fa.go{background:var(--ferro);border-color:var(--ferro);color:#fff}
+.fa.go:hover{background:#9a4416;color:#fff}
+.fa.warn{border-color:#e3b34e;color:#9a6a12}
+.fa.warn:hover{background:var(--amber);border-color:var(--amber);color:#fff}
+.fa.danger{border-color:#e6b4ae;color:var(--danger)}
+.fa.danger:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+.del-btn{background:transparent;border:1px solid var(--line);color:var(--ink-3);cursor:pointer;width:30px;height:28px;border-radius:7px;display:inline-grid;place-items:center;transition:all .14s}
+.del-btn:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-bg)}
+.nf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin:16px 0 4px}
+.nf-grid div{display:flex;flex-direction:column;gap:2px}
+.nf-grid span{font-family:"Oswald";font-weight:500;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-3)}
+.nf-grid b{font-size:13.5px;color:var(--ink);font-weight:600}
+.nf-totais{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0;padding:13px 15px;background:#fdf9f1;border:1px solid var(--line);border-radius:11px}
+.nf-totais span{display:flex;flex-direction:column;gap:1px;min-width:88px}
+.nf-totais i{font-family:"Oswald";font-weight:500;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);font-style:normal}
+.nf-totais .tot-nf{margin-left:auto;text-align:right}
+.nf-totais .tot-nf i{color:var(--ferro)}
+.nf-totais .tot-nf{font-weight:700;color:var(--ferro)}
+.nf-pag{font-size:12.5px;color:var(--ink-2);margin:6px 0 2px}
+.nf-pag b{color:var(--ink);font-family:"Oswald";font-weight:600;margin-right:6px}
+.cf-in{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)}
+.cf-in:focus{outline:none;border-color:var(--ferro)}
+.cf-in.cf-q{font-family:"IBM Plex Mono";text-align:center}
 
 /* minimizar barra lateral */
 .side-collapse{margin-left:auto;background:transparent;border:0;color:#b8a585;cursor:pointer;padding:6px;
@@ -710,7 +735,6 @@ const NAV = [
 const SCREENS = {
   fg:{
     eyebrow:"Filas", title:"Fila Geral", subtitle:"Visão central por NF, PC e Vinculados",
-    scanBtn:"Bipar",
     xmlBtn:"Dar entrada por XML",
     kpis:[
       {val:"28",lab:"Em andamento",sub:"todas as etapas",tone:"process"},
@@ -763,7 +787,6 @@ const SCREENS = {
       {val:"16",lab:"Conferidas",sub:"sem pendência",tone:"ok"},
       {val:"5", lab:"Com divergência",sub:"precisam fiscal",tone:"danger"},
     ],
-    scanBtn:"Bipar nota",
     xmlBtn:"Dar entrada por XML",
     info:{b:"Bipagem da NF.",t:"Passe o leitor no código de barras da DANFE (ou digite a chave de 44 dígitos). O sistema dá entrada na nota; os produtos são importados da SEFAZ pelo serviço fiscal."},
     cols:[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Origem",t:"text"}],
@@ -1601,18 +1624,33 @@ function go(id){
 
   if(id==="cover"){ setTopbar("Texas Center","Visão geral","Sistema de Gestão de Recebimento, Cadastro e Publicação"); view.appendChild(renderCover()); return; }
   if(id==="flow"){ setTopbar("Mapa de fluxos","Mapa de fluxos","Fluxo nacional e fluxo importado"); view.appendChild(renderFlow()); return; }
+  if(id!=="nfdetail") CONF_MODE=false;
   if(id==="nfdetail"){
+    if(SELECTED_NF && CONF_MODE){
+      setTopbar("Recebimento","Conferência física","NF "+(SELECTED_NF.numero||""));
+      const content=el("div","content");
+      const left=el("div");left.appendChild(renderNfConf(SELECTED_NF));
+      content.appendChild(left);
+      content.appendChild(buildMap({title:"Conferência física",map:[
+        "A conferência só registra o que chegou fisicamente.",
+        "Preencha a quantidade recebida e observações por item.",
+        "Produto que chegou e não está na NF: Adicionar produto extra.",
+        "Produto extra fica pendente de análise fiscal/compras.",
+        "Concluir manda a NF para o Fiscal — sem devolver aqui."]}));
+      view.appendChild(content);
+      return;
+    }
     if(SELECTED_NF){
       setTopbar("Notas Fiscais","Detalhe da NF","NF "+(SELECTED_NF.numero||"")+" — "+(SELECTED_NF.fornecedor||""));
       const content=el("div","content");
       const left=el("div");left.appendChild(renderNfView(SELECTED_NF));
       content.appendChild(left);
       content.appendChild(buildMap({title:"Detalhe da NF",map:[
-        "Cabeçalho resume número, fornecedor, status e total da nota.",
-        "Os produtos vêm do XML — referência, descrição, NCM, CFOP, quantidade e valores.",
-        "Cada linha é um item da nota fiscal.",
-        "A entrada por XML preenche todos os itens automaticamente.",
-        "Depois a nota segue para Conferência e Fiscal."]}));
+        "Cabeçalho resume número, fornecedor, status, total e tempo na NF.",
+        "Dados fiscais: chave, CFOP, NCM, CST, ICMS, IPI, PIS, COFINS e ST.",
+        "Totais e pagamento/parcelas vêm do XML.",
+        "Produtos com quantidade da NF × recebida na conferência.",
+        "ADM Master pode excluir a NF com motivo (fica para auditoria)."]}));
       view.appendChild(content);
       return;
     }
@@ -1634,27 +1672,39 @@ function go(id){
     if(id==="usuarios" && LIVE_USERS.length)
       s.rows=LIVE_USERS.map(u=>[u.name||"",u.login||u.email||"",ROLE_LABEL[u.role]||u.role||"",pagesSummary(u),u.status||"Ativo","Editar acesso"]);
     if(id==="nf"){
-      const L=LIVE_NFS;
-      s.rows=L.map(n=>[n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"Aguardando importação",n.origem==="bipagem"?"Bipada":n.origem==="xml"?"XML":"Manual"]);
+      const L=LIVE_NFS.filter(n=>!n.excluida);
+      s.cols=[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Origem",t:"text"},{k:"",t:"del"}];
+      s.rows=L.map(n=>[n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"Aguardando importação",n.origem==="xml"?"XML":n.origem==="bipagem"?"Bipada":"Manual",""]);
       s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+      s.onDel=(ri)=>{ if(L[ri]) deleteNf(L[ri]); };
     }
     else if(id==="fg"){
-      const L=LIVE_NFS;
-      s.rows=L.map(n=>["NF",n.numero||"",n.fornecedor||"—",n.status||"",n.responsavel||n.criadoPor||"—",n.origem==="xml"?"XML":n.origem==="bipagem"?"Bipada":""]);
+      const L=LIVE_NFS.filter(n=>!n.excluida);
+      s.filters=null;
+      s.cols=[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"Etapa",t:"badge"},{k:"Responsável",t:"text"},{k:"Tempo parado",t:"text"},{k:"Diverg.",t:"text"},{k:"",t:"del"}];
+      s.rows=L.map(n=>[n.numero||"",n.fornecedor||"—",n.status||"",n.responsavel||n.criadoPor||"—",tempoStr(n.lastChange),String(divergCount(n)),""]);
       s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+      s.onDel=(ri)=>{ if(L[ri]) deleteNf(L[ri]); };
     }
     else if(STAGE_STATUS[id]){
-      const L=LIVE_NFS.filter(n=>(n.status||"")===STAGE_STATUS[id]);
+      const L=LIVE_NFS.filter(n=>(n.status||"")===STAGE_STATUS[id] && !n.excluida);
       const label={ex:"Conferir",dv:"Resolver",fi:"Analisar",er:"Cadastrar",st:"Publicar",et:"Etiquetar"}[id]||"Abrir";
-      s.cols=NF_LIST_COLS.concat([{k:"Ação",t:"act"}]);
-      s.rows=L.map(n=>nfRow(n).concat([label]));
-      s.onRow=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
-      s.onAct=(ri)=>{ if(L[ri]) openNfDetail(L[ri]); };
+      s.cols=NF_LIST_COLS.concat([{k:"Ação",t:"act"},{k:"",t:"del"}]);
+      s.rows=L.map(n=>nfRow(n).concat([label,""]));
+      const open=(ri)=>{ if(!L[ri])return; if(id==="ex") openConf(L[ri]); else openNfDetail(L[ri]); };
+      s.onRow=open; s.onAct=open;
+      s.onDel=(ri)=>{ if(L[ri]) deleteNf(L[ri]); };
     }
-    if(id==="cr" && LIVE_CORR.length)
-      s.rows=LIVE_CORR.map(r=>[r.produto||"",r.motivo||"",r.solicitante||"",r.responsavel||"",r.antes||"",r.depois||"",r.tempo||"—"]);
-    if(id==="ft" && LIVE_FOTOS.length)
-      s.rows=LIVE_FOTOS.map(r=>[r.produto||"",r.usuario||"",r.fotos||"",r.tempo||"—",r.tempoEd||"—",r.status||"Registrado","Ver"]);
+    if(id==="cr"){
+      s.cols=[{k:"Produto",t:"mono"},{k:"Motivo",t:"text"},{k:"Solicitante",t:"text"},{k:"Responsável",t:"text"},{k:"Antes",t:"text"},{k:"Depois",t:"text"},{k:"Tempo",t:"mono"},{k:"",t:"del"}];
+      s.rows=LIVE_CORR.map(r=>[r.produto||"",r.motivo||"",r.solicitante||"",r.responsavel||"",r.antes||"",r.depois||"",r.tempo||"—",""]);
+      s.onDel=(ri)=>{ if(LIVE_CORR[ri]) deleteDoc("correcoes",LIVE_CORR[ri].id,"correção"); };
+    }
+    if(id==="ft"){
+      s.cols=[{k:"Produto",t:"text"},{k:"Usuário",t:"text"},{k:"Fotos",t:"text"},{k:"Tempo total",t:"mono"},{k:"Por produto",t:"mono"},{k:"Status",t:"badge"},{k:"",t:"del"}];
+      s.rows=LIVE_FOTOS.map(r=>[r.produto||"",r.usuario||"",r.fotos||"",r.tempo||"—",r.tempoPorProduto||"—",r.status||"Registrado",""]);
+      s.onDel=(ri)=>{ if(LIVE_FOTOS[ri]) deleteDoc("fotos",LIVE_FOTOS[ri].id,"registro de fotos"); };
+    }
   }
   setTopbar(s.eyebrow,s.title,s.subtitle);
 
@@ -1797,11 +1847,11 @@ function startLiveSync(){
       if(["fg","nf","ex","dv","fi","er","st","et","op","nfdetail"].includes(current)) go(current);
     }, e=>console.warn("nfs:",e)));
     unsub.push(db.collection("correcoes").orderBy("ts","desc").limit(200).onSnapshot(s=>{
-      LIVE_CORR=s.docs.map(d=>d.data());
+      LIVE_CORR=s.docs.map(d=>({id:d.id,...d.data()}));
       if(current==="cr") go("cr");
     }, e=>console.warn("correcoes:",e)));
     unsub.push(db.collection("fotos").orderBy("ts","desc").limit(200).onSnapshot(s=>{
-      LIVE_FOTOS=s.docs.map(d=>d.data());
+      LIVE_FOTOS=s.docs.map(d=>({id:d.id,...d.data()}));
       if(current==="ft") go("ft");
     }, e=>console.warn("fotos:",e)));
   }
@@ -1867,73 +1917,136 @@ function parseNfeXml(text){
   const dest=doc.getElementsByTagName("dest")[0];
   const tot=doc.getElementsByTagName("ICMSTot")[0];
   const chave=(infNFe.getAttribute("Id")||"").replace(/^NFe/,"") || g(doc,"chNFe");
+  const cstOf=(icms)=>{ if(!icms) return ""; const a=icms.getElementsByTagName("CST"); if(a.length) return a[0].textContent.trim(); const b=icms.getElementsByTagName("CSOSN"); return b.length?b[0].textContent.trim():""; };
   const produtos=[...doc.getElementsByTagName("det")].map(d=>{
     const prod=d.getElementsByTagName("prod")[0];
-    const imp=d.getElementsByTagName("imposto")[0];
+    const icms=d.getElementsByTagName("ICMS")[0], ipi=d.getElementsByTagName("IPI")[0];
+    const pis=d.getElementsByTagName("PIS")[0], cof=d.getElementsByTagName("COFINS")[0];
     return {
       item:d.getAttribute("nItem")||"", ref:g(prod,"cProd"), ean:g(prod,"cEAN"),
       descricao:g(prod,"xProd"), ncm:g(prod,"NCM"), cfop:g(prod,"CFOP"), cest:g(prod,"CEST"),
       unidade:g(prod,"uCom"), qtd:g(prod,"qCom"), vUnit:g(prod,"vUnCom"), vTotal:g(prod,"vProd"),
-      icms:g(imp,"vICMS"), ipi:g(imp,"vIPI")
+      vDesc:g(prod,"vDesc"),
+      cst:cstOf(icms), icmsPerc:g(icms,"pICMS"), icmsV:g(icms,"vICMS"),
+      ipiV:g(ipi,"vIPI"), ipiPerc:g(ipi,"pIPI"),
+      pisV:g(pis,"vPIS"), cofinsV:g(cof,"vCOFINS"), stV:g(icms,"vICMSST")
     };
   });
   if(!produtos.length) throw new Error("O XML não tem produtos (det).");
+  const formaMap={"01":"Dinheiro","02":"Cheque","03":"Cartão crédito","04":"Cartão débito","05":"Crédito loja","10":"Vale alim.","11":"Vale refeição","12":"Vale presente","13":"Vale combustível","15":"Boleto","17":"PIX","90":"Sem pagamento","99":"Outros"};
+  const pagamentos=[...doc.getElementsByTagName("detPag")].map(p=>{ const f=g(p,"tPag"); return { forma:f, formaNome:formaMap[f]||f, valor:g(p,"vPag") }; });
+  const dups=[...doc.getElementsByTagName("dup")].map(d=>({ n:g(d,"nDup"), venc:g(d,"dVenc"), valor:g(d,"vDup") }));
   return {
     chave, numero:g(ide,"nNF"), serie:g(ide,"serie"), modelo:g(ide,"mod"), natOp:g(ide,"natOp"),
     dataEmissao:(g(ide,"dhEmi")||g(ide,"dEmi")||"").slice(0,10),
     emitenteCnpj:fmtCnpj(g(emit,"CNPJ")), fornecedor:g(emit,"xNome"),
     destCnpj:fmtCnpj(g(dest,"CNPJ")||g(dest,"CPF")), destNome:g(dest,"xNome"),
+    totais:{ vProd:g(tot,"vProd"), vDesc:g(tot,"vDesc"), vFrete:g(tot,"vFrete"), vICMS:g(tot,"vICMS"),
+      vIPI:g(tot,"vIPI"), vPIS:g(tot,"vPIS"), vCOFINS:g(tot,"vCOFINS"), vST:g(tot,"vST"), vNF:g(tot,"vNF") },
+    pagamentos, dups,
     vNF:g(tot,"vNF"), produtos
   };
 }
 
+function tempoStr(ts){
+  if(!ts) return "—";
+  try{ const d=ts.toDate?ts.toDate():new Date(ts); let s=Math.floor((Date.now()-d.getTime())/1000); if(s<0)s=0;
+    const dia=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);
+    if(dia>0) return dia+"d "+h+"h"; if(h>0) return h+"h "+m+"min"; return m+"min";
+  }catch(e){ return "—"; }
+}
+function divergCount(nf){
+  const ps=nf.produtos||[]; let n=0;
+  ps.forEach(p=>{ if(p.extra) n++; else if(p.qtdReceb!=null && p.qtdReceb!=="" && Number(p.qtdReceb)!==Number(p.qtd)) n++; });
+  return n;
+}
+function deleteNf(nf){
+  if(CURRENT_ROLE!=="gestor"){ toast("Apenas o ADM Master pode excluir NF."); return; }
+  const motivo=(prompt("Excluir a NF "+(nf.numero||"")+".\nInforme o MOTIVO (obrigatório):")||"").trim();
+  if(!motivo){ toast("Exclusão cancelada — motivo obrigatório."); return; }
+  if(!(FB_ENABLED&&db)){ toast("Configure o Firebase."); return; }
+  db.collection("nfs").doc(nf.id).update({
+    excluida:true, status:"Excluída", motivoExclusao:motivo, excluidaPor:CURRENT_USER.name,
+    excluidaEm:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    recordAction("Notas Fiscais","Excluiu NF","","NF "+(nf.numero||"")+" — motivo: "+motivo);
+    toast("NF "+(nf.numero||"")+" excluída (mantida para auditoria)");
+    SELECTED_NF=null; go(ALLOWED&&ALLOWED.has("nf")?"nf":(ALLOWED&&ALLOWED.has("fg")?"fg":landingFor(CURRENT_USER)));
+  }).catch(e=>toast("Erro: "+(e.message||e)));
+}
+function deleteProduct(nf,idx){
+  if(!confirm("Remover este produto da nota?")) return;
+  const arr=(nf.produtos||[]).slice(); const rem=arr.splice(idx,1)[0];
+  db.collection("nfs").doc(nf.id).update({produtos:arr})
+    .then(()=>{ recordAction("Notas Fiscais","Removeu produto","",(rem&&rem.descricao)||""); toast("Produto removido"); nf.produtos=arr; SELECTED_NF=nf; go("nfdetail"); })
+    .catch(e=>toast("Erro: "+(e.message||e)));
+}
+
 function renderNfView(nf){
   const frag=document.createDocumentFragment();
+  const t=nf.totais||{};
   const head=el("div","nfhead");
   head.innerHTML=`<div class="top">
       <h2>NF ${esc(nf.numero||"")} — ${esc(nf.fornecedor||nf.emitenteCnpj||"")}</h2>
       <div class="meta">
         <span class="badge ${toneClass(nf.status||"")}"><span class="dot"></span>${esc(nf.status||"—")}</span>
-        <span class="badge b-muted">Série ${esc(nf.serie||"—")}</span>
+        <span class="badge b-muted">Série ${esc(nf.serie||"—")} · Mod ${esc(nf.modelo||"55")}</span>
         <span class="badge b-process">${(nf.produtos||[]).length} produtos</span>
         ${nf.vNF?`<span class="badge b-ok">Total R$ ${esc(brMoney(nf.vNF))}</span>`:""}
+        <span class="badge b-muted">⏱ ${tempoStr(nf.entradaEm)} na NF</span>
+        <span class="badge b-warn">parado ${tempoStr(nf.lastChange)}</span>
       </div>
     </div>
-    <div class="histbar"><b>Dados da nota</b>
-      <span class="ev">Emitente <span class="mono">${esc(nf.emitenteCnpj||"")}</span></span>
-      <span style="color:#cbb">·</span>
-      <span class="ev">Destinatário ${esc(nf.destNome||"—")}</span>
-      <span style="color:#cbb">·</span>
-      <span class="ev">Emissão <span class="t">${esc(nf.dataEmissao||"—")}</span></span>
-      <span style="color:#cbb">·</span>
-      <span class="ev">Origem ${nf.origem==="xml"?"Entrada por XML":nf.origem==="bipagem"?"Bipagem":"—"}</span>
+    <div class="nf-grid">
+      <div><span>Chave de acesso</span><b class="mono" style="font-size:11.5px">${esc(nf.chave||"—")}</b></div>
+      <div><span>Emitente / CNPJ</span><b>${esc(nf.fornecedor||"—")} · <span class="mono">${esc(nf.emitenteCnpj||"")}</span></b></div>
+      <div><span>Destinatário</span><b>${esc(nf.destNome||"—")} <span class="mono">${esc(nf.destCnpj||"")}</span></b></div>
+      <div><span>Natureza da operação</span><b>${esc(nf.natOp||"—")}</b></div>
+      <div><span>Emissão</span><b>${esc(nf.dataEmissao||"—")}</b></div>
+      <div><span>Responsável atual</span><b>${esc(nf.responsavel||nf.criadoPor||"—")}</b></div>
     </div>
-    ${nf.chave?`<div class="histbar" style="margin-top:8px"><b>Chave de acesso</b><span class="mono" style="font-size:12px">${esc(nf.chave)}</span></div>`:""}`;
+    <div class="nf-totais">
+      <span><i>Produtos</i>R$ ${esc(brMoney(t.vProd||nf.vNF))}</span>
+      <span><i>Desconto</i>R$ ${esc(brMoney(t.vDesc))}</span>
+      <span><i>Frete</i>R$ ${esc(brMoney(t.vFrete))}</span>
+      <span><i>ICMS</i>R$ ${esc(brMoney(t.vICMS))}</span>
+      <span><i>IPI</i>R$ ${esc(brMoney(t.vIPI))}</span>
+      <span><i>ST</i>R$ ${esc(brMoney(t.vST))}</span>
+      <span><i>PIS</i>R$ ${esc(brMoney(t.vPIS))}</span>
+      <span><i>COFINS</i>R$ ${esc(brMoney(t.vCOFINS))}</span>
+      <span class="tot-nf"><i>Total da NF</i>R$ ${esc(brMoney(t.vNF||nf.vNF))}</span>
+    </div>
+    ${(nf.pagamentos&&nf.pagamentos.length)?`<div class="nf-pag"><b>Pagamento</b> ${nf.pagamentos.map(p=>esc(p.formaNome)+" R$ "+esc(brMoney(p.valor))).join(" · ")}${(nf.dups&&nf.dups.length)?" · Parcelas: "+nf.dups.map(d=>esc(d.venc)+" R$ "+esc(brMoney(d.valor))).join(", "):""}</div>`:""}
+    ${nf.excluida?`<div class="nf-pag" style="color:var(--danger)"><b>NF excluída</b> por ${esc(nf.excluidaPor||"")} — motivo: ${esc(nf.motivoExclusao||"")}</div>`:""}`;
   frag.appendChild(head);
-  const acts=STAGE_ACTIONS[nf.status]||[];
-  if(acts.length){
-    const bar=el("div","nf-actions");
-    acts.forEach(a=>{ const b=el("button","fa"+(a.cls?" "+a.cls:""),esc(a.l)); b.onclick=()=>advanceNf(nf,a); bar.appendChild(b); });
-    frag.appendChild(bar);
-  }
+
+  const bar=el("div","nf-actions");
+  (STAGE_ACTIONS[nf.status]||[]).forEach(a=>{ const b=el("button","fa"+(a.cls?" "+a.cls:""),esc(a.l)); b.onclick=()=>advanceNf(nf,a); bar.appendChild(b); });
+  if(CURRENT_ROLE==="gestor" && !nf.excluida){ const del=el("button","fa danger","Excluir NF"); del.onclick=()=>deleteNf(nf); bar.appendChild(del); }
+  frag.appendChild(bar);
+
   const panel=el("div","panel");
   panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2><span class="badge b-muted">${(nf.produtos||[]).length} itens</span>`));
   const tw=el("div","tbl-wrap");const tbl=el("table");
   const ps=nf.produtos||[];
   const body = !ps.length
-    ? `<tr><td colspan="8" class="empty-row">Sem produtos nesta nota.</td></tr>`
-    : ps.map(p=>`<tr>
-        <td class="mono">${esc(p.ref||"")}</td>
+    ? `<tr><td colspan="11" class="empty-row">Sem produtos nesta nota.</td></tr>`
+    : ps.map((p,i)=>`<tr${p.extra?' style="background:#fbf0e0"':''}>
+        <td class="mono">${esc(p.ref||"")}${p.extra?' <span class="badge b-amber" style="margin-left:4px">extra</span>':''}</td>
         <td>${esc(p.descricao||"")}</td>
         <td class="mono">${esc(p.ncm||"")}</td>
         <td class="mono">${esc(p.cfop||"")}</td>
+        <td class="mono">${esc(p.cst||"")}</td>
         <td>${esc(brNum(p.qtd))}</td>
-        <td>${esc(p.unidade||"")}</td>
+        <td>${p.qtdReceb!=null&&p.qtdReceb!==""?esc(brNum(p.qtdReceb)):"—"}</td>
         <td class="mono">${esc(brMoney(p.vUnit))}</td>
-        <td class="mono">${esc(brMoney(p.vTotal))}</td></tr>`).join("");
+        <td class="mono">${esc(brMoney(p.vTotal))}</td>
+        <td class="mono">${esc(p.icmsPerc||"0")}% / ${esc(p.ipiPerc||"0")}%</td>
+        <td style="text-align:right"><button class="del-btn" data-pdel="${i}" title="Remover produto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join("");
   tbl.innerHTML=`<thead><tr>
-      <th class="mono">Ref</th><th>Descrição</th><th class="mono">NCM</th><th class="mono">CFOP</th>
-      <th>Qtd</th><th>Un</th><th class="mono">V. Unit</th><th class="mono">V. Total</th></tr></thead><tbody>${body}</tbody>`;
+      <th class="mono">Ref</th><th>Descrição</th><th class="mono">NCM</th><th class="mono">CFOP</th><th class="mono">CST</th>
+      <th>Qtd NF</th><th>Qtd Receb.</th><th class="mono">V. Unit</th><th class="mono">V. Total</th><th class="mono">ICMS/IPI</th><th></th></tr></thead><tbody>${body}</tbody>`;
+  tbl.querySelectorAll("[data-pdel]").forEach(b=>b.onclick=()=>deleteProduct(nf,+b.dataset.pdel));
   tw.appendChild(tbl);panel.appendChild(tw);frag.appendChild(panel);
   return frag;
 }
@@ -1967,12 +2080,13 @@ function saveXml(){
   if(!PARSED_NF){ xmlErr("Escolha um arquivo .xml primeiro."); return; }
   if(!(FB_ENABLED&&db&&CURRENT_USER)){ xmlErr("Configure o Firebase para dar entrada."); return; }
   const nf=PARSED_NF; $("#xml-save").disabled=true;
+  const now=firebase.firestore.FieldValue.serverTimestamp();
   db.collection("nfs").add({
     chave:nf.chave, numero:nf.numero, serie:nf.serie, modelo:nf.modelo, natOp:nf.natOp,
     emitenteCnpj:nf.emitenteCnpj, fornecedor:nf.fornecedor, destCnpj:nf.destCnpj, destNome:nf.destNome,
-    dataEmissao:nf.dataEmissao, vNF:nf.vNF, produtos:nf.produtos,
-    status:"Conferência", origem:"xml",
-    criadoPor:CURRENT_USER.name, ts:firebase.firestore.FieldValue.serverTimestamp()
+    dataEmissao:nf.dataEmissao, vNF:nf.vNF, totais:nf.totais, pagamentos:nf.pagamentos, dups:nf.dups,
+    produtos:nf.produtos, status:"Conferência", origem:"xml", excluida:false,
+    criadoPor:CURRENT_USER.name, responsavel:"", entradaEm:now, lastChange:now, ts:now
   }).then(()=>{
     recordAction("Notas Fiscais","Entrada por XML","","NF "+nf.numero+" — "+nf.produtos.length+" produtos");
     toast("NF "+nf.numero+" importada — "+nf.produtos.length+" produtos");
@@ -1985,17 +2099,17 @@ function saveXml(){
 const NF_LIST_COLS=[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Responsável",t:"text"}];
 const STAGE_STATUS={ ex:"Conferência", dv:"Divergência", fi:"Fiscal", er:"Cadastro ERP", st:"Cadastro Site", et:"Etiquetagem" };
 const STAGE_ACTIONS={
-  "Conferência":[{l:"Conferência OK",to:"Fiscal",cls:"go"},{l:"Devolver (divergência)",to:"Divergência",cls:"warn",reason:true}],
-  "Fiscal":[{l:"Liberar cadastro",to:"Cadastro ERP",cls:"go"},{l:"Devolver p/ conferência",to:"Conferência",cls:"warn",reason:true}],
+  "Fiscal":[{l:"Liberar cadastro",to:"Cadastro ERP",cls:"go"},{l:"Marcar divergência",to:"Divergência",cls:"warn",reason:true}],
   "Cadastro ERP":[{l:"Concluir ERP → Site",to:"Cadastro Site",cls:"go"},{l:"Enviar p/ etiquetagem",to:"Etiquetagem"}],
-  "Cadastro Site":[{l:"Publicar (concluir)",to:"Concluído",cls:"go"}],
+  "Cadastro Site":[{l:"Fotografia",foto:true},{l:"Publicar (concluir)",to:"Concluído",cls:"go"}],
   "Etiquetagem":[{l:"Loja liberada (concluir)",to:"Concluído",cls:"go"}],
-  "Divergência":[{l:"Resolver → Conferência",to:"Conferência",cls:"go"}],
-  "Aguardando importação":[{l:"Dar entrada por XML",to:null,xml:true,cls:"go"}],
+  "Divergência":[{l:"Resolver → Fiscal",to:"Fiscal",cls:"go"}],
 };
 function nfCounts(){
-  const c={total:LIVE_NFS.length,conf:0,fiscal:0,erp:0,site:0,etiq:0,concl:0,diverg:0,aguard:0,andamento:0,itensConf:0};
+  const c={total:0,conf:0,fiscal:0,erp:0,site:0,etiq:0,concl:0,diverg:0,aguard:0,andamento:0,itensConf:0};
   LIVE_NFS.forEach(n=>{
+    if(n.excluida) return;
+    c.total++;
     const s=n.status||"";
     if(s==="Conferência"){c.conf++; c.itensConf+=(n.produtos&&n.produtos.length)||0;}
     else if(s==="Fiscal")c.fiscal++;
@@ -2025,17 +2139,116 @@ function setKpisLive(id,s,c){
 function nfRow(n){ return [n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"",n.responsavel||n.criadoPor||"—"]; }
 function advanceNf(nf,act){
   if(act.xml){ openXml(); return; }
+  if(act.foto){ openFotoNf(nf); return; }
   if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
   let motivo="";
-  if(act.reason){ motivo=(prompt("Motivo da devolução:")||"").trim(); if(!motivo){ toast("Informe o motivo para devolver."); return; } }
+  if(act.reason){ motivo=(prompt("Motivo:")||"").trim(); if(!motivo){ toast("Informe o motivo."); return; } }
+  const now=firebase.firestore.FieldValue.serverTimestamp();
   db.collection("nfs").doc(nf.id).update({
-    status:act.to, responsavel:CURRENT_USER.name,
+    status:act.to, responsavel:CURRENT_USER.name, lastChange:now,
     hist: firebase.firestore.FieldValue.arrayUnion({de:nf.status||"",para:act.to,por:CURRENT_USER.name,motivo,em:new Date().toISOString()})
   }).then(()=>{
     recordAction("Fluxo NF",(nf.status||"")+" → "+act.to, nf.status||"", "NF "+nf.numero+(motivo?(" — "+motivo):""));
     toast("NF "+nf.numero+" → "+act.to);
     nf.status=act.to; nf.responsavel=CURRENT_USER.name; SELECTED_NF=nf; go("nfdetail");
   }).catch(e=>toast("Erro: "+(e.message||e)));
+}
+
+/* ---- S4: conferência física ---- */
+let CONF_MODE=false, CONF_EXTRAS=[];
+function openConf(nf){ SELECTED_NF=nf; CONF_MODE=true; CONF_EXTRAS=[]; go("nfdetail"); }
+function addConfExtra(){
+  const ref=(prompt("Produto extra — Referência/código:")||"").trim(); if(!ref) return;
+  const desc=(prompt("Descrição:")||"").trim();
+  const qtd=(prompt("Quantidade recebida:","1")||"1").trim();
+  CONF_EXTRAS.push({ref,desc,qtd}); go("nfdetail");
+}
+function saveConf(){
+  const nf=SELECTED_NF; if(!nf) return;
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
+  const produtos=(nf.produtos||[]).filter(p=>!p.extra).map((p,i)=>{
+    const q=$("#cf-q-"+i), r=$("#cf-r-"+i), o=$("#cf-o-"+i);
+    return {...p, qtdReceb:q?q.value.trim():"", refConf:r?r.value.trim():"", obs:o?o.value.trim():"", conferido:true};
+  });
+  CONF_EXTRAS.forEach(e=>produtos.push({ref:e.ref,descricao:e.desc,qtd:"",qtdReceb:e.qtd,extra:true,obs:"Produto extra — não encontrado na NF",conferido:true}));
+  const now=firebase.firestore.FieldValue.serverTimestamp();
+  db.collection("nfs").doc(nf.id).update({
+    produtos, conferentePor:CURRENT_USER.name, status:"Fiscal", responsavel:CURRENT_USER.name, lastChange:now,
+    hist: firebase.firestore.FieldValue.arrayUnion({de:"Conferência",para:"Fiscal",por:CURRENT_USER.name,motivo:"",em:new Date().toISOString()})
+  }).then(()=>{
+    recordAction("Conferência","Conferência concluída","","NF "+nf.numero+" — "+CONF_EXTRAS.length+" extra(s)");
+    toast("Conferência concluída — NF "+nf.numero+" → Fiscal");
+    CONF_MODE=false; CONF_EXTRAS=[]; nf.produtos=produtos; nf.status="Fiscal"; SELECTED_NF=nf; go("ex");
+  }).catch(e=>toast("Erro: "+(e.message||e)));
+}
+function renderNfConf(nf){
+  const frag=document.createDocumentFragment();
+  const head=el("div","nfhead");
+  head.innerHTML=`<div class="top">
+      <h2>Conferência física — NF ${esc(nf.numero||"")}</h2>
+      <div class="meta">
+        <span class="badge b-process">${esc(nf.fornecedor||"")}</span>
+        <span class="badge b-muted">${(nf.produtos||[]).filter(p=>!p.extra).length} itens na NF</span>
+        <span class="badge b-amber">⏱ ${tempoStr(nf.entradaEm)} desde a entrada</span>
+      </div>
+    </div>
+    <div class="nf-pag">Confira o que chegou fisicamente. Preencha a quantidade recebida e observações. Produtos que vieram sem estar na NF: use <b>Adicionar produto extra</b>.</div>`;
+  frag.appendChild(head);
+
+  const bar=el("div","nf-actions");
+  const addb=el("button","fa","+ Adicionar produto extra"); addb.onclick=addConfExtra; bar.appendChild(addb);
+  const okb=el("button","fa go","Concluir conferência → Fiscal"); okb.onclick=saveConf; bar.appendChild(okb);
+  frag.appendChild(bar);
+
+  const panel=el("div","panel");
+  panel.appendChild(el("div","panel-head",`<h2>NF × Contagem física</h2>`));
+  const tw=el("div","tbl-wrap");const tbl=el("table");
+  const base=(nf.produtos||[]).filter(p=>!p.extra);
+  const rows=base.map((p,i)=>`<tr>
+      <td class="mono">${esc(p.ref||"")}</td>
+      <td>${esc(p.descricao||"")}</td>
+      <td>${esc(brNum(p.qtd))}</td>
+      <td><input class="cf-in" id="cf-r-${i}" value="${esc(p.refConf||p.ref||"")}"></td>
+      <td><input class="cf-in cf-q" id="cf-q-${i}" inputmode="numeric" value="${esc(p.qtdReceb!=null?p.qtdReceb:"")}" placeholder="${esc(brNum(p.qtd))}"></td>
+      <td><input class="cf-in" id="cf-o-${i}" value="${esc(p.obs||"")}" placeholder="observação"></td></tr>`).join("");
+  const extraRows=CONF_EXTRAS.map(e=>`<tr style="background:#fbf0e0">
+      <td class="mono">${esc(e.ref)} <span class="badge b-amber">extra</span></td>
+      <td>${esc(e.desc||"")}</td><td>—</td><td>—</td>
+      <td class="mono">${esc(e.qtd)}</td><td>não encontrado na NF</td></tr>`).join("");
+  tbl.innerHTML=`<thead><tr><th class="mono">Ref NF</th><th>Descrição</th><th>Qtd NF</th><th>Ref conferida</th><th>Qtd recebida</th><th>Observação</th></tr></thead><tbody>${rows||""}${extraRows}${(!rows&&!extraRows)?'<tr><td colspan="6" class="empty-row">Sem produtos.</td></tr>':''}</tbody>`;
+  tw.appendChild(tbl);panel.appendChild(tw);frag.appendChild(panel);
+  return frag;
+}
+
+/* ---- S7: fotografia da NF (dentro do Site) ---- */
+function openFotoNf(nf){
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
+  const total=(nf.produtos||[]).filter(p=>!p.extra).length||1;
+  const qtd=parseInt((prompt("Quantos produtos foram fotografados nesta sessão?",String(total))||"0"),10);
+  if(!qtd){ return; }
+  const tot=swSec; // usa o cronômetro do topo
+  if(!tot){ if(!confirm("O cronômetro está em 00:00. Registrar sessão sem tempo?")) return; }
+  const porProd=tot?Math.round(tot/qtd):0;
+  db.collection("fotos").add({
+    nfNumero:nf.numero||"", produto:"NF "+(nf.numero||""), fotos:String(qtd),
+    usuario:CURRENT_USER.name, tempo:swStr(), tempoSeg:tot, tempoPorProduto:fmtSeg(porProd),
+    status:"Fotografado", ts:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    recordAction("Fotos","Sessão de fotos","","NF "+(nf.numero||"")+" — "+qtd+" produtos em "+swStr()+" ("+fmtSeg(porProd)+"/produto)");
+    toast("Fotografia registrada: "+qtd+" produtos · "+fmtSeg(porProd)+"/produto");
+    swReset();
+  }).catch(e=>toast("Erro: "+(e.message||e)));
+}
+function fmtSeg(s){ const m=Math.floor(s/60),x=s%60; return (m>0?m+"min ":"")+x+"s"; }
+
+/* exclusão de registros (correções, fotos) */
+function deleteDoc(coll,id,label){
+  if(!id) return;
+  if(!confirm("Excluir "+label+"? Esta ação não pode ser desfeita.")) return;
+  if(!(FB_ENABLED&&db)){ toast("Configure o Firebase."); return; }
+  db.collection(coll).doc(id).delete()
+    .then(()=>{ recordAction("Exclusão",coll,label,"Excluído por "+CURRENT_USER.name); toast(label+" excluído"); })
+    .catch(e=>toast("Erro ao excluir: "+(e.message||e)));
 }
 
 /* clique na linha da NF abre o detalhe com os produtos */
