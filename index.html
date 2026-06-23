@@ -444,6 +444,12 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .cf-in{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)}
 .cf-in:focus{outline:none;border-color:var(--ferro)}
 .cf-in.cf-q{font-family:"IBM Plex Mono";text-align:center}
+.erp-card{margin-bottom:14px}
+.erp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px;padding:14px 18px}
+.erp-grid label{display:flex;flex-direction:column;gap:3px;font-family:"Oswald";font-weight:500;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3)}
+.erp-grid .cf-in{font-family:"IBM Plex Sans";text-transform:none;letter-spacing:0}
+.erp-grid .cf-in.mono{font-family:"IBM Plex Mono"}
+.erp-grid .cf-in:disabled{background:#f1ebdf;color:var(--ink-2)}
 
 /* minimizar barra lateral */
 .side-collapse{margin-left:auto;background:transparent;border:0;color:#b8a585;cursor:pointer;padding:6px;
@@ -1624,7 +1630,7 @@ function go(id){
 
   if(id==="cover"){ setTopbar("Texas Center","Visão geral","Sistema de Gestão de Recebimento, Cadastro e Publicação"); view.appendChild(renderCover()); return; }
   if(id==="flow"){ setTopbar("Mapa de fluxos","Mapa de fluxos","Fluxo nacional e fluxo importado"); view.appendChild(renderFlow()); return; }
-  if(id!=="nfdetail") CONF_MODE=false;
+  if(id!=="nfdetail"){ CONF_MODE=false; ERP_MODE=false; }
   if(id==="nfdetail"){
     if(SELECTED_NF && CONF_MODE){
       setTopbar("Recebimento","Conferência física","NF "+(SELECTED_NF.numero||""));
@@ -1637,6 +1643,20 @@ function go(id){
         "Produto que chegou e não está na NF: Adicionar produto extra.",
         "Produto extra fica pendente de análise fiscal/compras.",
         "Concluir manda a NF para o Fiscal — sem devolver aqui."]}));
+      view.appendChild(content);
+      return;
+    }
+    if(SELECTED_NF && ERP_MODE){
+      setTopbar("Cadastro & Saída","Cadastro ERP","NF "+(SELECTED_NF.numero||""));
+      const content=el("div","content");
+      const left=el("div");left.appendChild(renderNfErp(SELECTED_NF));
+      content.appendChild(left);
+      content.appendChild(buildMap({title:"Cadastro ERP",map:[
+        "Mostra o que veio na NF e o que virou no ERP.",
+        "Vincule a referência da NF à referência final do ERP.",
+        "Produto já cadastrado antes vem sugerido — só validar.",
+        "Salvar guarda o vínculo no catálogo de produtos.",
+        "Concluir manda a NF para o Cadastro Site."]}));
       view.appendChild(content);
       return;
     }
@@ -1691,7 +1711,7 @@ function go(id){
       const label={ex:"Conferir",dv:"Resolver",fi:"Analisar",er:"Cadastrar",st:"Publicar",et:"Etiquetar"}[id]||"Abrir";
       s.cols=NF_LIST_COLS.concat([{k:"Ação",t:"act"},{k:"",t:"del"}]);
       s.rows=L.map(n=>nfRow(n).concat([label,""]));
-      const open=(ri)=>{ if(!L[ri])return; if(id==="ex") openConf(L[ri]); else openNfDetail(L[ri]); };
+      const open=(ri)=>{ if(!L[ri])return; if(id==="ex") openConf(L[ri]); else if(id==="er") openErp(L[ri]); else openNfDetail(L[ri]); };
       s.onRow=open; s.onAct=open;
       s.onDel=(ri)=>{ if(L[ri]) deleteNf(L[ri]); };
     }
@@ -1763,7 +1783,7 @@ const BOOTSTRAP = {
 let signingUp=false;
 
 let FB_ENABLED=false, auth=null, db=null;
-let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], LIVE_CORR=[], LIVE_FOTOS=[], unsub=[];
+let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], LIVE_CORR=[], LIVE_FOTOS=[], CATALOG={}, unsub=[];
 
 function initFirebase(){
   try{
@@ -1854,9 +1874,13 @@ function startLiveSync(){
       LIVE_FOTOS=s.docs.map(d=>({id:d.id,...d.data()}));
       if(current==="ft") go("ft");
     }, e=>console.warn("fotos:",e)));
+    unsub.push(db.collection("cadastro_erp").limit(2000).onSnapshot(s=>{
+      CATALOG={}; s.docs.forEach(d=>CATALOG[d.id]=d.data());
+      if(["nfdetail","er"].includes(current)) go(current);
+    }, e=>console.warn("catalogo:",e)));
   }
 }
-function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; LIVE_CORR=[]; LIVE_FOTOS=[]; }
+function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; LIVE_CORR=[]; LIVE_FOTOS=[]; CATALOG={}; }
 
 /* ---- cronômetro global (topo, vale no site inteiro) ---- */
 let swSec=0, swTimer=null;
@@ -1974,24 +1998,43 @@ function deleteNf(nf){
     SELECTED_NF=null; go(ALLOWED&&ALLOWED.has("nf")?"nf":(ALLOWED&&ALLOWED.has("fg")?"fg":landingFor(CURRENT_USER)));
   }).catch(e=>toast("Erro: "+(e.message||e)));
 }
+function brDate(v){ if(!v) return "—"; const m=String(v).match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:v; }
+function catKey(ref){ return String(ref||"").trim().toUpperCase().replace(/[\/\\\s'"]/g,"_").slice(0,180)||"_"; }
+function num(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
 function deleteProduct(nf,idx){
-  if(!confirm("Remover este produto da nota?")) return;
-  const arr=(nf.produtos||[]).slice(); const rem=arr.splice(idx,1)[0];
+  const arr=(nf.produtos||[]).slice(); const p=arr[idx]; if(!p) return;
+  const motivo=(prompt("Remover produto "+(p.ref||"")+" da NF.\nMotivo da remoção (obrigatório):")||"").trim();
+  if(!motivo){ toast("Remoção cancelada — motivo obrigatório."); return; }
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
+  arr[idx]={...p, removido:true, motivoRem:motivo, removidoPor:CURRENT_USER.name, removidoEm:new Date().toISOString()};
   db.collection("nfs").doc(nf.id).update({produtos:arr})
-    .then(()=>{ recordAction("Notas Fiscais","Removeu produto","",(rem&&rem.descricao)||""); toast("Produto removido"); nf.produtos=arr; SELECTED_NF=nf; go("nfdetail"); })
+    .then(()=>{ recordAction("Notas Fiscais","Removeu produto",(p.descricao||p.ref||""),"motivo: "+motivo); toast("Produto removido (mantido no histórico)"); nf.produtos=arr; SELECTED_NF=nf; go("nfdetail"); })
+    .catch(e=>toast("Erro: "+(e.message||e)));
+}
+function restoreProduct(nf,idx){
+  const arr=(nf.produtos||[]).slice(); const p=arr[idx]; if(!p) return;
+  const {removido,motivoRem,removidoPor,removidoEm,...rest}=p; arr[idx]=rest;
+  db.collection("nfs").doc(nf.id).update({produtos:arr})
+    .then(()=>{ recordAction("Notas Fiscais","Restaurou produto",(p.descricao||p.ref||""),""); toast("Produto restaurado"); nf.produtos=arr; SELECTED_NF=nf; go("nfdetail"); })
     .catch(e=>toast("Erro: "+(e.message||e)));
 }
 
 function renderNfView(nf){
   const frag=document.createDocumentFragment();
   const t=nf.totais||{};
+  const all=nf.produtos||[];
+  const ativos=all.filter(p=>!p.removido);
+  const removidos=all.filter(p=>p.removido);
+  const vOriginal=num(t.vNF||nf.vNF);
+  const vAtivos=ativos.reduce((a,p)=>a+num(p.vTotal),0);
+  const vRemovidos=removidos.reduce((a,p)=>a+num(p.vTotal),0);
   const head=el("div","nfhead");
   head.innerHTML=`<div class="top">
       <h2>NF ${esc(nf.numero||"")} — ${esc(nf.fornecedor||nf.emitenteCnpj||"")}</h2>
       <div class="meta">
         <span class="badge ${toneClass(nf.status||"")}"><span class="dot"></span>${esc(nf.status||"—")}</span>
         <span class="badge b-muted">Série ${esc(nf.serie||"—")} · Mod ${esc(nf.modelo||"55")}</span>
-        <span class="badge b-process">${(nf.produtos||[]).length} produtos</span>
+        <span class="badge b-process">${ativos.length} ativos${removidos.length?` · ${removidos.length} removidos`:""}</span>
         ${nf.vNF?`<span class="badge b-ok">Total R$ ${esc(brMoney(nf.vNF))}</span>`:""}
         <span class="badge b-muted">⏱ ${tempoStr(nf.entradaEm)} na NF</span>
         <span class="badge b-warn">parado ${tempoStr(nf.lastChange)}</span>
@@ -2016,9 +2059,22 @@ function renderNfView(nf){
       <span><i>COFINS</i>R$ ${esc(brMoney(t.vCOFINS))}</span>
       <span class="tot-nf"><i>Total da NF</i>R$ ${esc(brMoney(t.vNF||nf.vNF))}</span>
     </div>
-    ${(nf.pagamentos&&nf.pagamentos.length)?`<div class="nf-pag"><b>Pagamento</b> ${nf.pagamentos.map(p=>esc(p.formaNome)+" R$ "+esc(brMoney(p.valor))).join(" · ")}${(nf.dups&&nf.dups.length)?" · Parcelas: "+nf.dups.map(d=>esc(d.venc)+" R$ "+esc(brMoney(d.valor))).join(", "):""}</div>`:""}
     ${nf.excluida?`<div class="nf-pag" style="color:var(--danger)"><b>NF excluída</b> por ${esc(nf.excluidaPor||"")} — motivo: ${esc(nf.motivoExclusao||"")}</div>`:""}`;
   frag.appendChild(head);
+
+  const pg=nf.pagamentos||[], dp=nf.dups||[];
+  const formaTxt=pg.map(p=>p.formaNome).filter(Boolean).join(", ")||"—";
+  const parcelado=dp.length>1;
+  const pagBox=el("div","panel");
+  let pagHtml=`<div class="panel-head"><h2>Pagamento</h2><span class="badge b-muted">${parcelado?dp.length+"x parcelado":"à vista"}</span></div>
+    <div class="nf-pag" style="padding:0 18px"><b>Forma</b> ${esc(formaTxt)} · <b>Total</b> R$ ${esc(brMoney(t.vNF||nf.vNF))}</div>`;
+  if(dp.length){
+    pagHtml+=`<div class="tbl-wrap"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="mono">Valor</th></tr></thead><tbody>`+
+      dp.map((d,i)=>`<tr><td>${i+1}/${dp.length}</td><td>${esc(brDate(d.venc))}</td><td class="mono">R$ ${esc(brMoney(d.valor))}</td></tr>`).join("")+
+      `</tbody></table></div>`;
+  }
+  pagBox.innerHTML=pagHtml;
+  frag.appendChild(pagBox);
 
   const bar=el("div","nf-actions");
   (STAGE_ACTIONS[nf.status]||[]).forEach(a=>{ const b=el("button","fa"+(a.cls?" "+a.cls:""),esc(a.l)); b.onclick=()=>advanceNf(nf,a); bar.appendChild(b); });
@@ -2026,13 +2082,14 @@ function renderNfView(nf){
   frag.appendChild(bar);
 
   const panel=el("div","panel");
-  panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2><span class="badge b-muted">${(nf.produtos||[]).length} itens</span>`));
+  panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2><span class="badge b-muted">${ativos.length} ativos</span>`));
   const tw=el("div","tbl-wrap");const tbl=el("table");
-  const ps=nf.produtos||[];
-  const body = !ps.length
-    ? `<tr><td colspan="11" class="empty-row">Sem produtos nesta nota.</td></tr>`
-    : ps.map((p,i)=>`<tr${p.extra?' style="background:#fbf0e0"':''}>
-        <td class="mono">${esc(p.ref||"")}${p.extra?' <span class="badge b-amber" style="margin-left:4px">extra</span>':''}</td>
+  const idxOf=p=>all.indexOf(p);
+  const body = !ativos.length
+    ? `<tr><td colspan="11" class="empty-row">Nenhum produto ativo nesta nota.</td></tr>`
+    : ativos.map(p=>{ const i=idxOf(p); const cat=CATALOG[catKey(p.ref)];
+      return `<tr${p.extra?' style="background:#fbf0e0"':''}>
+        <td class="mono">${esc(p.ref||"")}${p.extra?' <span class="badge b-amber">extra</span>':''}${cat?' <span class="badge b-ok" title="Já cadastrado antes">✓ cadastrado</span>':''}</td>
         <td>${esc(p.descricao||"")}</td>
         <td class="mono">${esc(p.ncm||"")}</td>
         <td class="mono">${esc(p.cfop||"")}</td>
@@ -2042,14 +2099,36 @@ function renderNfView(nf){
         <td class="mono">${esc(brMoney(p.vUnit))}</td>
         <td class="mono">${esc(brMoney(p.vTotal))}</td>
         <td class="mono">${esc(p.icmsPerc||"0")}% / ${esc(p.ipiPerc||"0")}%</td>
-        <td style="text-align:right"><button class="del-btn" data-pdel="${i}" title="Remover produto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>`).join("");
+        <td style="text-align:right">${nf.excluida?"":`<button class="del-btn" data-pdel="${i}" title="Remover produto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>`}</td></tr>`; }).join("");
   tbl.innerHTML=`<thead><tr>
       <th class="mono">Ref</th><th>Descrição</th><th class="mono">NCM</th><th class="mono">CFOP</th><th class="mono">CST</th>
       <th>Qtd NF</th><th>Qtd Receb.</th><th class="mono">V. Unit</th><th class="mono">V. Total</th><th class="mono">ICMS/IPI</th><th></th></tr></thead><tbody>${body}</tbody>`;
   tbl.querySelectorAll("[data-pdel]").forEach(b=>b.onclick=()=>deleteProduct(nf,+b.dataset.pdel));
   tw.appendChild(tbl);panel.appendChild(tw);frag.appendChild(panel);
+
+  if(removidos.length){
+    const rp=el("div","panel");
+    rp.appendChild(el("div","panel-head",`<h2>Produtos removidos</h2><span class="badge b-danger">${removidos.length}</span>`));
+    const rtw=el("div","tbl-wrap");const rtbl=el("table");
+    rtbl.innerHTML=`<thead><tr><th class="mono">Ref</th><th>Descrição</th><th>Qtd</th><th class="mono">V. Unit</th><th class="mono">V. Total</th><th>Usuário</th><th>Data/Hora</th><th>Motivo</th><th></th></tr></thead><tbody>`+
+      removidos.map(p=>{ const i=idxOf(p); return `<tr style="opacity:.85">
+        <td class="mono">${esc(p.ref||"")}</td><td>${esc(p.descricao||"")}</td>
+        <td>${esc(brNum(p.qtd))}</td><td class="mono">${esc(brMoney(p.vUnit))}</td><td class="mono">R$ ${esc(brMoney(p.vTotal))}</td>
+        <td>${esc(p.removidoPor||"")}</td><td class="mono">${esc(fmtIso(p.removidoEm))}</td><td>${esc(p.motivoRem||"")}</td>
+        <td style="text-align:right">${nf.excluida?"":`<button class="fa" style="padding:4px 9px;font-size:11px" data-prest="${i}">Restaurar</button>`}</td></tr>`; }).join("")+`</tbody></table>`;
+    rtw.appendChild(rtbl);rp.appendChild(rtw);
+    const imp=el("div","nf-totais");
+    imp.innerHTML=`<span><i>Valor original da NF</i>R$ ${esc(brMoney(vOriginal))}</span>
+      <span><i>Produtos ativos</i>R$ ${esc(brMoney(vAtivos))}</span>
+      <span><i>Produtos removidos</i>R$ ${esc(brMoney(vRemovidos))}</span>
+      <span class="tot-nf"><i>Diferença p/ o total</i>R$ ${esc(brMoney(vOriginal-vAtivos))}</span>`;
+    rp.appendChild(imp);
+    rtbl.querySelectorAll("[data-prest]").forEach(b=>b.onclick=()=>restoreProduct(nf,+b.dataset.prest));
+    frag.appendChild(rp);
+  }
   return frag;
 }
+function fmtIso(iso){ if(!iso) return "—"; try{ const d=new Date(iso); return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){ return iso; } }
 
 function openNfDetail(nf){ SELECTED_NF=nf; go("nfdetail"); }
 
@@ -2220,7 +2299,82 @@ function renderNfConf(nf){
   return frag;
 }
 
-/* ---- S7: fotografia da NF (dentro do Site) ---- */
+/* ---- S6 (alt3): Cadastro ERP editável + vínculo de referência + catálogo ---- */
+let ERP_MODE=false;
+function openErp(nf){ SELECTED_NF=nf; ERP_MODE=true; go("nfdetail"); }
+function saveErp(concluir){
+  const nf=SELECTED_NF; if(!nf) return;
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
+  const all=(nf.produtos||[]).slice();
+  const ativos=all.map((p,i)=>({p,i})).filter(x=>!x.p.removido);
+  const catWrites=[];
+  ativos.forEach(({p,i})=>{
+    const get=id=>{ const e=$("#"+id+"-"+i); return e?e.value.trim():""; };
+    const erp={
+      refReal:get("er-rr"), refFinal:get("er-rf"), descFinal:get("er-df"),
+      corFinal:get("er-cor"), gradeFinal:get("er-gr"), ncm:get("er-ncm"),
+      custo:get("er-cs"), preco:get("er-pv"), obs:get("er-ob"),
+      por:CURRENT_USER.name, em:new Date().toISOString()
+    };
+    all[i]={...p, erp};
+    if(erp.refFinal||erp.descFinal){
+      catWrites.push(db.collection("cadastro_erp").doc(catKey(p.ref)).set({
+        refNF:p.ref||"", refReal:erp.refReal, refFinal:erp.refFinal, descNF:p.descricao||"",
+        descFinal:erp.descFinal, corFinal:erp.corFinal, gradeFinal:erp.gradeFinal, ncm:erp.ncm||p.ncm||"",
+        custo:erp.custo, preco:erp.preco, fornecedor:nf.fornecedor||"", cfop:p.cfop||"", cst:p.cst||"",
+        atualizadoPor:CURRENT_USER.name, nfOrigem:nf.numero||"", ts:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true}));
+    }
+  });
+  const upd={produtos:all, cadastroErpPor:CURRENT_USER.name, responsavel:CURRENT_USER.name, lastChange:firebase.firestore.FieldValue.serverTimestamp()};
+  if(concluir){ upd.status="Cadastro Site"; upd.hist=firebase.firestore.FieldValue.arrayUnion({de:"Cadastro ERP",para:"Cadastro Site",por:CURRENT_USER.name,motivo:"",em:new Date().toISOString()}); }
+  Promise.all([db.collection("nfs").doc(nf.id).update(upd), ...catWrites]).then(()=>{
+    recordAction("Cadastro ERP",concluir?"Concluiu cadastro":"Salvou cadastro","","NF "+(nf.numero||"")+" — "+catWrites.length+" no catálogo");
+    toast(concluir?("NF "+(nf.numero||"")+" → Cadastro Site"):"Cadastro salvo");
+    nf.produtos=all; SELECTED_NF=nf;
+    if(concluir){ ERP_MODE=false; nf.status="Cadastro Site"; go("er"); } else go("nfdetail");
+  }).catch(e=>toast("Erro: "+(e.message||e)));
+}
+function renderNfErp(nf){
+  const frag=document.createDocumentFragment();
+  const all=nf.produtos||[];
+  const head=el("div","nfhead");
+  head.innerHTML=`<div class="top">
+      <h2>Cadastro ERP — NF ${esc(nf.numero||"")}</h2>
+      <div class="meta"><span class="badge b-process">${esc(nf.fornecedor||"")}</span>
+        <span class="badge b-muted">${all.filter(p=>!p.removido).length} produtos</span></div>
+    </div>
+    <div class="nf-pag">Preencha como o produto virou no ERP. Produtos com <b>✓ cadastrado</b> já foram cadastrados antes e vêm sugeridos — só validar.</div>`;
+  frag.appendChild(head);
+  const bar=el("div","nf-actions");
+  const sv=el("button","fa","Salvar cadastro"); sv.onclick=()=>saveErp(false); bar.appendChild(sv);
+  const cc=el("button","fa go","Concluir cadastro → Site"); cc.onclick=()=>saveErp(true); bar.appendChild(cc);
+  frag.appendChild(bar);
+
+  all.forEach((p,i)=>{
+    if(p.removido) return;
+    const cat=CATALOG[catKey(p.ref)]||{};
+    const erp=p.erp||{};
+    const v=(a,b)=>esc(erp[a]!=null&&erp[a]!==""?erp[a]:(cat[b]!=null?cat[b]:""));
+    const card=el("div","panel erp-card");
+    card.innerHTML=`<div class="panel-head"><h2 style="font-size:14px">${esc(p.ref||"")} · ${esc(p.descricao||"")}</h2>
+      ${cat.refFinal?`<span class="badge b-ok">✓ cadastrado antes: ${esc(cat.refFinal)}</span>`:`<span class="badge b-amber">novo</span>`}</div>
+      <div class="erp-grid">
+        <label>Ref original NF<input class="cf-in mono" value="${esc(p.ref||"")}" disabled></label>
+        <label>Ref real fornecedor<input class="cf-in" id="er-rr-${i}" value="${v('refReal','refReal')}"></label>
+        <label>Ref final ERP<input class="cf-in" id="er-rf-${i}" value="${v('refFinal','refFinal')||esc(p.ref||'')}"></label>
+        <label>Descrição final<input class="cf-in" id="er-df-${i}" value="${v('descFinal','descFinal')||esc(p.descricao||'')}"></label>
+        <label>Cor final<input class="cf-in" id="er-cor-${i}" value="${v('corFinal','corFinal')}"></label>
+        <label>Grade final<input class="cf-in" id="er-gr-${i}" value="${v('gradeFinal','gradeFinal')}"></label>
+        <label>NCM<input class="cf-in mono" id="er-ncm-${i}" value="${v('ncm','ncm')||esc(p.ncm||'')}"></label>
+        <label>Custo<input class="cf-in mono" id="er-cs-${i}" value="${v('custo','custo')||esc(p.vUnit||'')}"></label>
+        <label>Preço de venda<input class="cf-in mono" id="er-pv-${i}" value="${v('preco','preco')}"></label>
+        <label>Observação<input class="cf-in" id="er-ob-${i}" value="${esc(erp.obs||'')}"></label>
+      </div>`;
+    frag.appendChild(card);
+  });
+  return frag;
+}
 function openFotoNf(nf){
   if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
   const total=(nf.produtos||[]).filter(p=>!p.extra).length||1;
