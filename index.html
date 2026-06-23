@@ -601,6 +601,32 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 <div class="demobar" id="demobar">
   <span><b>Modo demonstração</b> — dados locais, sem sincronização. Configure o Firebase para salvar e sincronizar entre computadores.</span>
 </div>
+<div class="modal-bg" id="pc-modal">
+  <div class="modal" style="max-width:520px">
+    <h3>Subir Pedido de Compra (PDF)</h3>
+    <p class="em-note">Selecione o PDF do pedido. O sistema lê o que conseguir; confira e ajuste os campos antes de salvar.</p>
+    <label class="drop" id="pc-drop">
+      <input type="file" id="pc-file" accept="application/pdf,.pdf" hidden>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5M9 13h6M9 17h6M7 21h10a2 2 0 0 0 2-2V8l-5-5H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>
+      <span id="pc-drop-text">Clique para escolher ou arraste o PDF aqui</span>
+    </label>
+    <div class="erp-grid" style="padding:0">
+      <label>Número do pedido<input class="cf-in" id="pc-num"></label>
+      <label>Previsão de entrega<input class="cf-in" id="pc-prev" type="date"></label>
+      <label>Fornecedor<input class="cf-in" id="pc-forn"></label>
+      <label>CNPJ<input class="cf-in mono" id="pc-cnpj"></label>
+      <label style="grid-column:1/3">Observação comercial<input class="cf-in" id="pc-obs"></label>
+    </div>
+    <details style="margin:6px 0 12px"><summary style="cursor:pointer;font-size:12px;color:var(--ink-2)">Texto lido do PDF (conferência)</summary>
+      <textarea id="pc-text" class="cf-in" style="width:100%;height:120px;margin-top:6px;font-family:'IBM Plex Mono';font-size:11px" placeholder="O texto extraído do PDF aparece aqui…"></textarea>
+    </details>
+    <div class="login-err" id="pc-err"></div>
+    <div class="modal-act">
+      <button class="btn" id="pc-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="pc-save" type="button">Salvar pedido</button>
+    </div>
+  </div>
+</div>
 <div class="modal-bg" id="corr-modal">
   <div class="modal">
     <h3>Solicitar correção</h3>
@@ -767,23 +793,19 @@ const SCREENS = {
     note:"A NF é o centro da operação. Produtos ficam dentro da nota.",
   },
   pc:{
-    eyebrow:"Filas", title:"Pedido de Compra", subtitle:"Pré-cadastro e importados",
+    eyebrow:"Filas", title:"Pedido de Compra", subtitle:"Suba o PDF do pedido — previsão de entrega e atraso",
     kpis:[
-      {val:"12",lab:"Aguardando NF",sub:"importados",tone:"pc"},
-      {val:"8", lab:"Pré-cadastro",sub:"em andamento",tone:"process"},
-      {val:"3", lab:"Com NF sugerida",sub:"vínculo provável",tone:"ok"},
+      {val:"0",lab:"Pedidos",sub:"cadastrados",tone:"pc"},
+      {val:"0",lab:"No prazo",sub:"dentro da previsão",tone:"ok"},
+      {val:"0",lab:"Atrasados",sub:"passou da previsão",tone:"danger"},
     ],
-    info:{b:"Importação do PC.",t:"Compras sobe o Pedido de Compra. A IA extrai fornecedor, CNPJ, referências, quantidades e valores para gerar pré-cadastro."},
-    cols:[{k:"PC",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Produtos",t:"text"},{k:"Status",t:"badge"},{k:"Ação",t:"act"}],
-    rows:[
-      ["1025","Goyazes","00.000.000/0001-00","84","Pré-cadastro","Abrir"],
-      ["1030","Ariat","11.111.111/0001-00","36","Aguardando NF","Vincular"],
-      ["1031","Resistol","22.222.222/0001-00","58","Com NF sugerida","Confirmar"],
-    ],
+    info:{b:"Pedido de Compra.",t:"Suba o PDF do pedido. O sistema lê o que conseguir, você valida na prévia e salva. A previsão de entrega aponta atraso automaticamente."},
+    cols:[{k:"PC",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Previsão",t:"text"},{k:"Status",t:"badge"},{k:"Obs",t:"text"}],
+    rows:[],
     map:["PC é a sigla oficial para Pedido de Compra no sistema.",
-         "PC pode gerar pré-cadastro antes da mercadoria chegar.",
-         "Quando a NF chega, o sistema sugere vínculo por CNPJ, fornecedor, referências e quantidades.",
-         "PC não deve gerar duplicidade de cadastro quando a NF chegar.",
+         "Suba o PDF do pedido pelo botão acima.",
+         "O sistema mostra uma prévia para você validar antes de salvar.",
+         "A previsão de entrega indica se está no prazo ou atrasado.",
          "Cor roxa identifica origem por Pedido de Compra."],
   },
   nf:{
@@ -1725,6 +1747,15 @@ function go(id){
       s.rows=LIVE_FOTOS.map(r=>[r.produto||"",r.usuario||"",r.fotos||"",r.tempo||"—",r.tempoPorProduto||"—",r.status||"Registrado",""]);
       s.onDel=(ri)=>{ if(LIVE_FOTOS[ri]) deleteDoc("fotos",LIVE_FOTOS[ri].id,"registro de fotos"); };
     }
+    if(id==="pc"){
+      const hoje=new Date().toISOString().slice(0,10);
+      s.cols=[{k:"PC",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Previsão",t:"text"},{k:"Status",t:"badge"},{k:"PDF",t:"text"},{k:"",t:"del"}];
+      s.rows=LIVE_PCS.map(p=>{
+        const atras = p.previsao && p.previsao<hoje && p.status!=="Concluído";
+        return [p.numero||"",p.fornecedor||"—",p.cnpj||"",p.previsao?brDate(p.previsao):"—",atras?"Atrasado":(p.status||"Aberto"),p.pdfNome?"📎 "+p.pdfNome:"—",""];
+      });
+      s.onDel=(ri)=>{ if(LIVE_PCS[ri]) deleteDoc("pcs",LIVE_PCS[ri].id,"pedido "+(LIVE_PCS[ri].numero||"")); };
+    }
   }
   setTopbar(s.eyebrow,s.title,s.subtitle);
 
@@ -1783,7 +1814,7 @@ const BOOTSTRAP = {
 let signingUp=false;
 
 let FB_ENABLED=false, auth=null, db=null;
-let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], LIVE_CORR=[], LIVE_FOTOS=[], CATALOG={}, unsub=[];
+let LIVE_LOGS=[], LIVE_USERS=[], LIVE_NFS=[], LIVE_CORR=[], LIVE_FOTOS=[], LIVE_PCS=[], CATALOG={}, unsub=[];
 
 function initFirebase(){
   try{
@@ -1878,9 +1909,13 @@ function startLiveSync(){
       CATALOG={}; s.docs.forEach(d=>CATALOG[d.id]=d.data());
       if(["nfdetail","er"].includes(current)) go(current);
     }, e=>console.warn("catalogo:",e)));
+    unsub.push(db.collection("pcs").orderBy("ts","desc").limit(300).onSnapshot(s=>{
+      LIVE_PCS=s.docs.map(d=>({id:d.id,...d.data()}));
+      if(current==="pc") go("pc");
+    }, e=>console.warn("pcs:",e)));
   }
 }
-function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; LIVE_CORR=[]; LIVE_FOTOS=[]; CATALOG={}; }
+function stopLiveSync(){ unsub.forEach(u=>{try{u();}catch(e){}}); unsub=[]; LIVE_LOGS=[]; LIVE_USERS=[]; LIVE_NFS=[]; LIVE_CORR=[]; LIVE_FOTOS=[]; LIVE_PCS=[]; CATALOG={}; }
 
 /* ---- cronômetro global (topo, vale no site inteiro) ---- */
 let swSec=0, swTimer=null;
@@ -2214,6 +2249,7 @@ function setKpisLive(id,s,c){
   else if(id==="op"){ set(0,c.andamento); set(1,c.fiscal); set(2,c.erp); set(3,c.site); set(4,c.conf); set(5,c.diverg); }
   else if(id==="cr"){ set(0,LIVE_CORR.length); }
   else if(id==="ft"){ set(0,LIVE_FOTOS.reduce((a,r)=>a+(parseInt(r.fotos)||0),0)); }
+  else if(id==="pc"){ const hoje=new Date().toISOString().slice(0,10); const atr=LIVE_PCS.filter(p=>p.previsao&&p.previsao<hoje&&p.status!=="Concluído").length; set(0,LIVE_PCS.length); set(1,LIVE_PCS.length-atr); set(2,atr); }
 }
 function nfRow(n){ return [n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",String((n.produtos&&n.produtos.length)||0),n.status||"",n.responsavel||n.criadoPor||"—"]; }
 function advanceNf(nf,act){
@@ -2375,6 +2411,68 @@ function renderNfErp(nf){
   });
   return frag;
 }
+/* ---- Pedido de Compra: subir PDF ---- */
+let PC_PDFNAME="";
+function ensurePdfJs(){
+  return new Promise((res,rej)=>{
+    if(window.pdfjsLib){ res(window.pdfjsLib); return; }
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){} res(window.pdfjsLib); };
+    s.onerror=()=>rej(new Error("Não foi possível carregar o leitor de PDF."));
+    document.head.appendChild(s);
+  });
+}
+function openPc(){
+  ["pc-num","pc-prev","pc-forn","pc-cnpj","pc-obs","pc-text"].forEach(i=>{const e=$("#"+i);if(e)e.value="";});
+  PC_PDFNAME=""; $("#pc-drop-text").textContent="Clique para escolher ou arraste o PDF aqui";
+  $("#pc-err").classList.remove("show"); $("#pc-file").value=""; $("#pc-modal").classList.add("show");
+}
+function closePc(){ $("#pc-modal").classList.remove("show"); }
+function pcErr(m){ const e=$("#pc-err"); e.textContent=m; e.classList.add("show"); }
+function handlePcPdf(file){
+  if(!file) return;
+  PC_PDFNAME=file.name; $("#pc-drop-text").textContent=file.name+" — lendo…";
+  $("#pc-err").classList.remove("show");
+  const r=new FileReader();
+  r.onload=()=>{
+    ensurePdfJs().then(pdfjsLib=>{
+      return pdfjsLib.getDocument({data:new Uint8Array(r.result)}).promise.then(pdf=>{
+        const pages=[]; const seq=[];
+        for(let i=1;i<=pdf.numPages;i++) seq.push(i);
+        return seq.reduce((ch,n)=>ch.then(()=>pdf.getPage(n)).then(pg=>pg.getTextContent()).then(tc=>{pages.push(tc.items.map(it=>it.str).join(" "));}), Promise.resolve()).then(()=>pages.join("\n"));
+      });
+    }).then(txt=>{
+      $("#pc-drop-text").textContent=file.name;
+      $("#pc-text").value=(txt||"").slice(0,20000);
+      const cnpj=(txt.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/)||[])[0]; if(cnpj && !$("#pc-cnpj").value) $("#pc-cnpj").value=fmtCnpj(cnpj);
+      const ped=(txt.match(/(?:pedido|p\.?c\.?|n[ºo]|numero|número)\D{0,8}(\d{3,10})/i)||[])[1]; if(ped && !$("#pc-num").value) $("#pc-num").value=ped;
+      const dt=(txt.match(/(?:entrega|previs[ãa]o)\D{0,20}(\d{2}\/\d{2}\/\d{4})/i)||[])[1]; if(dt && !$("#pc-prev").value){ const m=dt.match(/(\d{2})\/(\d{2})\/(\d{4})/); if(m)$("#pc-prev").value=`${m[3]}-${m[2]}-${m[1]}`; }
+      toast("PDF lido — confira os campos");
+    }).catch(err=>{ $("#pc-drop-text").textContent=file.name; pcErr((err&&err.message)||"Não consegui ler o PDF — preencha manualmente."); });
+  };
+  r.onerror=()=>pcErr("Falha ao ler o arquivo.");
+  r.readAsArrayBuffer(file);
+}
+function savePc(){
+  const num=$("#pc-num").value.trim();
+  if(!num){ pcErr("Informe ao menos o número do pedido."); return; }
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ pcErr("Configure o Firebase para salvar."); return; }
+  $("#pc-save").disabled=true;
+  db.collection("pcs").add({
+    numero:num, fornecedor:$("#pc-forn").value.trim(), cnpj:$("#pc-cnpj").value.trim(),
+    previsao:$("#pc-prev").value||"", obs:$("#pc-obs").value.trim(),
+    pdfNome:PC_PDFNAME, textoPdf:($("#pc-text").value||"").slice(0,20000),
+    status:"Aberto", criadoPor:CURRENT_USER.name, ts:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    recordAction("Pedido de Compra","Subiu PDF","","PC "+num+(PC_PDFNAME?(" — "+PC_PDFNAME):""));
+    toast("Pedido "+num+" salvo");
+    closePc();
+  }).catch(e=>pcErr("Erro ao salvar: "+(e.message||e)))
+   .finally(()=>{ $("#pc-save").disabled=false; });
+}
+SCREENS.pc.primaryBtn={label:"Subir PDF do Pedido de Compra", fn:openPc};
+
 function openFotoNf(nf){
   if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
   const total=(nf.produtos||[]).filter(p=>!p.extra).length||1;
@@ -2715,6 +2813,15 @@ $("#sw-reset").onclick=swReset;
 $("#cr-cancel").onclick=closeCorr;
 $("#cr-save").onclick=saveCorr;
 $("#corr-modal").addEventListener("click",e=>{ if(e.target.id==="corr-modal") closeCorr(); });
+$("#pc-cancel").onclick=closePc;
+$("#pc-save").onclick=savePc;
+$("#pc-modal").addEventListener("click",e=>{ if(e.target.id==="pc-modal") closePc(); });
+$("#pc-file").addEventListener("change",e=>handlePcPdf(e.target.files[0]));
+(function(){ const d=$("#pc-drop"); if(!d)return;
+  d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("over");});
+  d.addEventListener("dragleave",()=>d.classList.remove("over"));
+  d.addEventListener("drop",e=>{e.preventDefault();d.classList.remove("over");handlePcPdf(e.dataTransfer.files[0]);});
+})();
 $("#xml-cancel").onclick=closeXml;
 $("#xml-save").onclick=saveXml;
 $("#xml-modal").addEventListener("click",e=>{ if(e.target.id==="xml-modal") closeXml(); });
