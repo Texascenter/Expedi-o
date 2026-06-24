@@ -433,12 +433,15 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .nf-grid div{display:flex;flex-direction:column;gap:2px}
 .nf-grid span{font-family:"Oswald";font-weight:500;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-3)}
 .nf-grid b{font-size:13.5px;color:var(--ink);font-weight:600}
-.nf-totais{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0;padding:13px 15px;background:#fdf9f1;border:1px solid var(--line);border-radius:11px}
-.nf-totais span{display:flex;flex-direction:column;gap:1px;min-width:88px}
-.nf-totais i{font-family:"Oswald";font-weight:500;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);font-style:normal}
-.nf-totais .tot-nf{margin-left:auto;text-align:right}
-.nf-totais .tot-nf i{color:var(--ferro)}
-.nf-totais .tot-nf{font-weight:700;color:var(--ferro)}
+.nf-totais{display:grid;grid-template-columns:repeat(4,1fr);margin:18px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fffdf8;box-shadow:0 1px 2px rgba(60,40,20,.04)}
+.tot-cell{display:flex;flex-direction:column;gap:4px;padding:13px 16px;border-right:1px solid #efe7d6;border-bottom:1px solid #efe7d6}
+.tot-cell:nth-child(4n){border-right:none}
+.tot-cell i{font-family:"Oswald";font-weight:500;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-3);font-style:normal}
+.tot-cell b{font-size:15px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.tot-final{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:linear-gradient(90deg,#fbeede,#f6e0cb)}
+.tot-final i{font-family:"Oswald";font-weight:600;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ferro);font-style:normal}
+.tot-final b{font-family:"Oswald";font-size:23px;color:var(--ferro);font-weight:700;font-variant-numeric:tabular-nums}
+@media(max-width:760px){.nf-totais{grid-template-columns:repeat(2,1fr)}.tot-cell:nth-child(4n){border-right:1px solid #efe7d6}.tot-cell:nth-child(2n){border-right:none}}
 .nf-pag{font-size:12.5px;color:var(--ink-2);margin:6px 0 2px}
 .nf-pag b{color:var(--ink);font-family:"Oswald";font-weight:600;margin-right:6px}
 .cf-in{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)}
@@ -1593,7 +1596,7 @@ function computeAllowed(user){
   const role=(user&&user.role)||"comum";
   const base=ROLE_BASE[role]||["cover"];
   if(base==="all"){
-    const s=new Set(["cover","flow","nfdetail","usuarios"]);
+    const s=new Set(["cover","flow","nfdetail","pcview","usuarios"]);
     NAV.forEach(g=>g.items.forEach(i=>s.add(i.id)));
     return s;
   }
@@ -1601,6 +1604,7 @@ function computeAllowed(user){
   ((user&&user.pages)||[]).forEach(p=>s.add(p));
   s.add("cover");
   if(s.has("fg")||s.has("nf")) s.add("nfdetail");
+  if(s.has("pc")||s.has("vn")) s.add("pcview");
   return s;
 }
 function landingFor(user){
@@ -1652,6 +1656,21 @@ function go(id){
 
   if(id==="cover"){ setTopbar("Texas Center","Visão geral","Sistema de Gestão de Recebimento, Cadastro e Publicação"); view.appendChild(renderCover()); return; }
   if(id==="flow"){ setTopbar("Mapa de fluxos","Mapa de fluxos","Fluxo nacional e fluxo importado"); view.appendChild(renderFlow()); return; }
+  if(id==="pcview"){
+    if(!SELECTED_PC){ go("pc"); return; }
+    setTopbar("Pedido de Compra","Pedido "+(SELECTED_PC.numero||""),SELECTED_PC.fornecedor||"");
+    const content=el("div","content");
+    const left=el("div");left.appendChild(renderPcView(SELECTED_PC));
+    content.appendChild(left);
+    content.appendChild(buildMap({title:"Pedido de Compra",map:[
+      "Aqui você vê e edita o pedido que subiu.",
+      "Ajuste número, fornecedor, CNPJ e previsão de entrega.",
+      "O status controla o andamento do pedido.",
+      "O texto lido do PDF fica para conferência.",
+      "Em Vinculados o sistema casa este PC com a NF por CNPJ."]}));
+    view.appendChild(content);
+    return;
+  }
   if(id!=="nfdetail"){ CONF_MODE=false; ERP_MODE=false; }
   if(id==="nfdetail"){
     if(SELECTED_NF && CONF_MODE){
@@ -1756,6 +1775,7 @@ function go(id){
       });
       s.onDel=(ri)=>{ if(LIVE_PCS[ri]) deleteDoc("pcs",LIVE_PCS[ri].id,"pedido "+(LIVE_PCS[ri].numero||"")); };
     }
+    SCREENS.pc.onRow=(ri)=>{ if(LIVE_PCS[ri]) openPcDetail(LIVE_PCS[ri]); };
     if(id==="vn"){
       const L=LIVE_NFS.filter(n=>!n.excluida);
       s.flow=null;
@@ -2102,15 +2122,15 @@ function renderNfView(nf){
       <div><span>Responsável atual</span><b>${esc(nf.responsavel||nf.criadoPor||"—")}</b></div>
     </div>
     <div class="nf-totais">
-      <span><i>Produtos</i>R$ ${esc(brMoney(t.vProd||nf.vNF))}</span>
-      <span><i>Desconto</i>R$ ${esc(brMoney(t.vDesc))}</span>
-      <span><i>Frete</i>R$ ${esc(brMoney(t.vFrete))}</span>
-      <span><i>ICMS</i>R$ ${esc(brMoney(t.vICMS))}</span>
-      <span><i>IPI</i>R$ ${esc(brMoney(t.vIPI))}</span>
-      <span><i>ST</i>R$ ${esc(brMoney(t.vST))}</span>
-      <span><i>PIS</i>R$ ${esc(brMoney(t.vPIS))}</span>
-      <span><i>COFINS</i>R$ ${esc(brMoney(t.vCOFINS))}</span>
-      <span class="tot-nf"><i>Total da NF</i>R$ ${esc(brMoney(t.vNF||nf.vNF))}</span>
+      <div class="tot-cell"><i>Produtos</i><b>R$ ${esc(brMoney(t.vProd||nf.vNF))}</b></div>
+      <div class="tot-cell"><i>Desconto</i><b>R$ ${esc(brMoney(t.vDesc))}</b></div>
+      <div class="tot-cell"><i>Frete</i><b>R$ ${esc(brMoney(t.vFrete))}</b></div>
+      <div class="tot-cell"><i>ICMS</i><b>R$ ${esc(brMoney(t.vICMS))}</b></div>
+      <div class="tot-cell"><i>IPI</i><b>R$ ${esc(brMoney(t.vIPI))}</b></div>
+      <div class="tot-cell"><i>ST</i><b>R$ ${esc(brMoney(t.vST))}</b></div>
+      <div class="tot-cell"><i>PIS</i><b>R$ ${esc(brMoney(t.vPIS))}</b></div>
+      <div class="tot-cell"><i>COFINS</i><b>R$ ${esc(brMoney(t.vCOFINS))}</b></div>
+      <div class="tot-final"><i>Total da NF</i><b>R$ ${esc(brMoney(t.vNF||nf.vNF))}</b></div>
     </div>
     ${nf.excluida?`<div class="nf-pag" style="color:var(--danger)"><b>NF excluída</b> por ${esc(nf.excluidaPor||"")} — motivo: ${esc(nf.motivoExclusao||"")}</div>`:""}`;
   frag.appendChild(head);
@@ -2171,10 +2191,10 @@ function renderNfView(nf){
         <td style="text-align:right">${nf.excluida?"":`<button class="fa" style="padding:4px 9px;font-size:11px" data-prest="${i}">Restaurar</button>`}</td></tr>`; }).join("")+`</tbody></table>`;
     rtw.appendChild(rtbl);rp.appendChild(rtw);
     const imp=el("div","nf-totais");
-    imp.innerHTML=`<span><i>Valor original da NF</i>R$ ${esc(brMoney(vOriginal))}</span>
-      <span><i>Produtos ativos</i>R$ ${esc(brMoney(vAtivos))}</span>
-      <span><i>Produtos removidos</i>R$ ${esc(brMoney(vRemovidos))}</span>
-      <span class="tot-nf"><i>Diferença p/ o total</i>R$ ${esc(brMoney(vOriginal-vAtivos))}</span>`;
+    imp.innerHTML=`<div class="tot-cell"><i>Valor original da NF</i><b>R$ ${esc(brMoney(vOriginal))}</b></div>
+      <div class="tot-cell"><i>Produtos ativos</i><b>R$ ${esc(brMoney(vAtivos))}</b></div>
+      <div class="tot-cell"><i>Produtos removidos</i><b>R$ ${esc(brMoney(vRemovidos))}</b></div>
+      <div class="tot-final"><i>Diferença p/ o total</i><b>R$ ${esc(brMoney(vOriginal-vAtivos))}</b></div>`;
     rp.appendChild(imp);
     rtbl.querySelectorAll("[data-prest]").forEach(b=>b.onclick=()=>restoreProduct(nf,+b.dataset.prest));
     frag.appendChild(rp);
@@ -2456,6 +2476,59 @@ function exportCurrent(){
   downloadCsv(s.title||current, cols.map(c=>c.k), s.rows.map(r=>cols.map(c=>r[c.i])));
   recordAction(s.title||current,"Exportar CSV","",s.rows.length+" linhas");
   toast("Exportado: "+s.rows.length+" linhas");
+}
+
+let SELECTED_PC=null;
+function openPcDetail(pc){ SELECTED_PC=pc; go("pcview"); }
+function savePcEdit(){
+  const pc=SELECTED_PC; if(!pc) return;
+  if(!(FB_ENABLED&&db&&CURRENT_USER)){ toast("Configure o Firebase."); return; }
+  const upd={
+    numero:$("#pv-num").value.trim(), fornecedor:$("#pv-forn").value.trim(), cnpj:$("#pv-cnpj").value.trim(),
+    previsao:$("#pv-prev").value||"", status:$("#pv-status").value, obs:$("#pv-obs").value.trim()
+  };
+  db.collection("pcs").doc(pc.id).update(upd)
+    .then(()=>{ recordAction("Pedido de Compra","Editou PC","","PC "+(upd.numero||"")); toast("Pedido atualizado"); Object.assign(pc,upd); SELECTED_PC=pc; go("pcview"); })
+    .catch(e=>toast("Erro: "+(e.message||e)));
+}
+function renderPcView(pc){
+  const frag=document.createDocumentFragment();
+  const head=el("div","nfhead");
+  const hoje=new Date().toISOString().slice(0,10);
+  const atras=pc.previsao&&pc.previsao<hoje&&pc.status!=="Concluído";
+  head.innerHTML=`<div class="top">
+      <h2>Pedido de Compra ${esc(pc.numero||"")}</h2>
+      <div class="meta">
+        <span class="badge ${atras?"b-danger":"b-pc"}"><span class="dot"></span>${atras?"Atrasado":esc(pc.status||"Aberto")}</span>
+        ${pc.previsao?`<span class="badge b-muted">Previsão ${esc(brDate(pc.previsao))}</span>`:""}
+        ${pc.pdfNome?`<span class="badge b-process">📎 ${esc(pc.pdfNome)}</span>`:""}
+      </div>
+    </div>`;
+  frag.appendChild(head);
+  const form=el("div","panel");
+  form.innerHTML=`<div class="panel-head"><h2>Dados do pedido</h2><span class="badge b-muted">editável</span></div>
+    <div class="erp-grid">
+      <label>Número do pedido<input class="cf-in" id="pv-num" value="${esc(pc.numero||"")}"></label>
+      <label>Previsão de entrega<input class="cf-in" id="pv-prev" type="date" value="${esc(pc.previsao||"")}"></label>
+      <label>Fornecedor<input class="cf-in" id="pv-forn" value="${esc(pc.fornecedor||"")}"></label>
+      <label>CNPJ<input class="cf-in mono" id="pv-cnpj" value="${esc(pc.cnpj||"")}"></label>
+      <label>Status<select class="cf-in" id="pv-status">
+        ${["Aberto","Em produção","Enviado","Recebido","Concluído","Cancelado"].map(o=>`<option ${pc.status===o?"selected":""}>${o}</option>`).join("")}
+      </select></label>
+      <label>Responsável<input class="cf-in" value="${esc(pc.criadoPor||"")}" disabled></label>
+      <label style="grid-column:1/3">Observação<input class="cf-in" id="pv-obs" value="${esc(pc.obs||"")}"></label>
+    </div>`;
+  const bar=el("div","nf-actions"); bar.style.marginTop="14px";
+  const sv=el("button","fa go","Salvar alterações"); sv.onclick=savePcEdit; bar.appendChild(sv);
+  if(CURRENT_ROLE==="gestor"){ const del=el("button","fa danger","Excluir pedido"); del.onclick=()=>{ deleteDoc("pcs",pc.id,"pedido "+(pc.numero||"")); SELECTED_PC=null; go("pc"); }; bar.appendChild(del); }
+  form.querySelector(".erp-grid").after(bar);
+  frag.appendChild(form);
+  if(pc.textoPdf){
+    const tp=el("div","panel");
+    tp.innerHTML=`<div class="panel-head"><h2>Texto lido do PDF</h2></div><div style="padding:14px 18px;white-space:pre-wrap;font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink-2);max-height:340px;overflow:auto">${esc(pc.textoPdf)}</div>`;
+    frag.appendChild(tp);
+  }
+  return frag;
 }
 
 /* ---- Vinculados: casar NF com PC por CNPJ ---- */
