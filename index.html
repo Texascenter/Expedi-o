@@ -453,6 +453,12 @@ td.mono,th.mono{font-family:"IBM Plex Mono";font-size:12.5px}
 .erp-grid .cf-in{font-family:"IBM Plex Sans";text-transform:none;letter-spacing:0}
 .erp-grid .cf-in.mono{font-family:"IBM Plex Mono"}
 .erp-grid .cf-in:disabled{background:#f1ebdf;color:var(--ink-2)}
+.pdf-read{padding:0}
+.pdf-read>summary{list-style:none;cursor:pointer;padding:15px 18px;display:flex;justify-content:space-between;align-items:center;font-family:"Oswald";font-weight:600;font-size:14px;color:var(--ink)}
+.pdf-read>summary::-webkit-details-marker{display:none}
+.pdf-read[open]>summary{border-bottom:1px solid var(--line)}
+.pdf-hint{font-family:"IBM Plex Sans";font-weight:400;font-size:11px;color:var(--ink-3)}
+.pdf-text{padding:14px 18px;font-family:"IBM Plex Mono";font-size:11px;line-height:1.75;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:#fdfaf3}
 
 /* minimizar barra lateral */
 .side-collapse{margin-left:auto;background:transparent;border:0;color:#b8a585;cursor:pointer;padding:6px;
@@ -2599,7 +2605,8 @@ function renderPcView(pc){
   frag.appendChild(form);
   if(pc.textoPdf){
     const tp=el("div","panel");
-    tp.innerHTML=`<div class="panel-head"><h2>Texto lido do PDF</h2></div><div style="padding:14px 18px;white-space:pre-wrap;font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink-2);max-height:340px;overflow:auto">${esc(pc.textoPdf)}</div>`;
+    const clean=String(pc.textoPdf).replace(/[ \t]{2,}/g," ").replace(/\s*\n\s*/g,"\n").trim();
+    tp.innerHTML=`<details class="pdf-read"><summary><span>Texto lido do PDF</span><span class="pdf-hint">clique para abrir / fechar</span></summary><div class="pdf-text">${esc(clean)}</div></details>`;
     frag.appendChild(tp);
   }
   return frag;
