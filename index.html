@@ -1998,7 +1998,7 @@ SCREENS.cr.primaryBtn={label:"Solicitar correção", fn:openCorr};
 SCREENS.ft.primaryBtn={label:"Registrar fotos", fn:openFoto};
 
 /* ---- entrada por XML: lê todos os produtos da NF-e ---- */
-let SELECTED_NF=null, PARSED_NF=null;
+let SELECTED_NF=null, PARSED_NF=null, GRADE_VIEW=false;
 function fmtCnpj(v){ v=(v||"").replace(/\D/g,""); return v.length===14?v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,"$1.$2.$3/$4-$5"):(v||""); }
 function brMoney(v){ const n=parseFloat(v); return isNaN(n)?(v||""):n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function brNum(v){ const n=parseFloat(v); return isNaN(n)?(v||""):n.toLocaleString("pt-BR",{maximumFractionDigits:3}); }
@@ -2019,7 +2019,7 @@ function parseNfeXml(text){
     const prod=d.getElementsByTagName("prod")[0];
     const icms=d.getElementsByTagName("ICMS")[0], ipi=d.getElementsByTagName("IPI")[0];
     const pis=d.getElementsByTagName("PIS")[0], cof=d.getElementsByTagName("COFINS")[0];
-    return {
+    const base={
       item:d.getAttribute("nItem")||"", ref:g(prod,"cProd"), ean:g(prod,"cEAN"),
       descricao:g(prod,"xProd"), ncm:g(prod,"NCM"), cfop:g(prod,"CFOP"), cest:g(prod,"CEST"),
       unidade:g(prod,"uCom"), qtd:g(prod,"qCom"), vUnit:g(prod,"vUnCom"), vTotal:g(prod,"vProd"),
@@ -2028,11 +2028,19 @@ function parseNfeXml(text){
       ipiV:g(ipi,"vIPI"), ipiPerc:g(ipi,"pIPI"),
       pisV:g(pis,"vPIS"), cofinsV:g(cof,"vCOFINS"), stV:g(icms,"vICMSST")
     };
+    base.sug=parseDesc(base.descricao, base.ref);
+    return base;
   });
   if(!produtos.length) throw new Error("O XML não tem produtos (det).");
   const formaMap={"01":"Dinheiro","02":"Cheque","03":"Cartão crédito","04":"Cartão débito","05":"Crédito loja","10":"Vale alim.","11":"Vale refeição","12":"Vale presente","13":"Vale combustível","15":"Boleto","17":"PIX","90":"Sem pagamento","99":"Outros"};
   const pagamentos=[...doc.getElementsByTagName("detPag")].map(p=>{ const f=g(p,"tPag"); return { forma:f, formaNome:formaMap[f]||f, valor:g(p,"vPag") }; });
   const dups=[...doc.getElementsByTagName("dup")].map(d=>({ n:g(d,"nDup"), venc:g(d,"dVenc"), valor:g(d,"vDup") }));
+  // item 5: se não vier duplicata, tenta ler parcelas das informações complementares
+  if(!dups.length){
+    const cpl=(g(doc,"infCpl")||"")+" "+(g(doc,"infAdFisco")||"");
+    const re=/(\d{2}\/\d{2}\/\d{4})\D{0,8}(?:R\$)?\s*([\d.]+,\d{2})/g; let mm;
+    while((mm=re.exec(cpl))){ dups.push({ n:String(dups.length+1), venc:mm[1].split("/").reverse().join("-"), valor:mm[2].replace(/\./g,"").replace(",",".") }); }
+  }
   return {
     chave, numero:g(ide,"nNF"), serie:g(ide,"serie"), modelo:g(ide,"mod"), natOp:g(ide,"natOp"),
     dataEmissao:(g(ide,"dhEmi")||g(ide,"dEmi")||"").slice(0,10),
@@ -2043,6 +2051,49 @@ function parseNfeXml(text){
     pagamentos, dups,
     vNF:g(tot,"vNF"), produtos
   };
+}
+/* item 2: lê grade, cor, ref real, plus e descrição limpa da descrição (sugestão) */
+const COR_LIST=["OFF WHITE","PRETO","PRETA","BRANCO","BRANCA","AZUL","MARINHO","VERMELHO","VERMELHA","CAFE","CAFÉ","CARAMELO","MARROM","BEGE","VERDE","CINZA","ROSA","AMARELO","VINHO","NUDE","JEANS","AREIA","TABACO","MOSTARDA","TERRACOTA","LARANJA","ROXO","LILAS","LILÁS","PRATA","DOURADO","CHUMBO","GELO","WHISKY","CONHAQUE","TAN","MEL","OURO","NATURAL","CRU"];
+const TAM_LETRAS=["PP","XGG","XXG","XG","GG","G","M","P","U"];
+function parseDesc(desc,ref){
+  const D=(desc||"").toUpperCase();
+  let tamanho="";
+  let m=D.match(/\bTAM(?:ANHO)?\.?\s*[:\-]?\s*([A-Z0-9]{1,4})\b/);
+  if(m) tamanho=m[1];
+  if(!tamanho){ const sz=TAM_LETRAS.find(s=>new RegExp("\\b"+s+"\\b").test(D)); if(sz) tamanho=sz; }
+  if(!tamanho){ const g1=D.match(/\bG[1-6]\b/); if(g1) tamanho=g1[0]; }
+  if(!tamanho){ const n=D.match(/\b(\d{2})\b/); if(n && +n[1]>=30 && +n[1]<=60) tamanho=n[1]; }
+  const plus = /PLUS|\bG[1-6]\b|\bXGG\b|\bXXG\b/.test(D) || (/^\d{2}$/.test(tamanho) && +tamanho>=46);
+  let cor=""; const c=COR_LIST.find(x=>D.includes(x)); if(c) cor=c.charAt(0)+c.slice(1).toLowerCase();
+  let refReal=""; const codes=D.match(/\b[A-Z]{1,4}\d{3,}[A-Z0-9-]*\b/g)||[]; refReal=(codes.find(x=>x!==(ref||"").toUpperCase())||"");
+  let descLimpa=(desc||"").replace(/\bTAM(?:ANHO)?\.?\s*[:\-]?\s*[A-Z0-9]{1,4}\b/ig,"").replace(/\s{2,}/g," ").trim();
+  return {tamanho, cor, plus, refReal, descLimpa};
+}
+/* item 3: agrupa grade na mesma linha da referência (mesma ref+cor), separa plus, conta variações */
+function groupByGrade(prods){
+  const groups={};
+  prods.forEach(p=>{
+    const sug=p.sug||{}; const erp=p.erp||{};
+    const cor=(erp.corFinal||sug.cor||"").trim();
+    const plus=!!sug.plus;
+    const refBase=String(p.ref||"").toUpperCase();
+    const key=refBase+"|"+cor.toUpperCase()+"|"+(plus?"PL":"N");
+    if(!groups[key]) groups[key]={refBase, ref:(p.ref||"")+(plus?"-PL":""), desc:erp.descFinal||sug.descLimpa||p.descricao||"", cor, plus, sizes:{}, qtd:0, valor:0};
+    const tam=(sug.tamanho||"U");
+    groups[key].sizes[tam]=(groups[key].sizes[tam]||0)+(parseFloat(p.qtd)||0);
+    groups[key].qtd+=parseFloat(p.qtd)||0; groups[key].valor+=num(p.vTotal);
+  });
+  const list=Object.values(groups);
+  // variações por refBase (cor × tamanho)
+  const varByRef={};
+  list.forEach(grp=>{ varByRef[grp.refBase]=(varByRef[grp.refBase]||0)+Object.keys(grp.sizes).length; });
+  list.forEach(grp=>{ grp.variacoes=varByRef[grp.refBase]; grp.bloqueado=grp.variacoes>100; });
+  return list;
+}
+function gradeStr(sizes){
+  const ord=["PP","P","M","G","GG","XG","XGG","XXG","G1","G2","G3","G4","G5","G6","U"];
+  const keys=Object.keys(sizes).sort((a,b)=>{ const ia=ord.indexOf(a),ib=ord.indexOf(b); if(ia<0&&ib<0) return (parseFloat(a)||0)-(parseFloat(b)||0); if(ia<0)return 1; if(ib<0)return -1; return ia-ib; });
+  return keys.map(k=>k+"("+brNum(sizes[k])+")").join(", ");
 }
 
 function tempoStr(ts){
@@ -2155,15 +2206,37 @@ function renderNfView(nf){
   frag.appendChild(bar);
 
   const panel=el("div","panel");
-  panel.appendChild(el("div","panel-head",`<h2>Produtos da nota</h2><span class="badge b-muted">${ativos.length} ativos</span>`));
+  const ph=el("div","panel-head");
+  ph.innerHTML=`<h2>Produtos da nota</h2><span class="badge b-muted">${ativos.length} ativos</span>`;
+  const toggle=el("button","fa",GRADE_VIEW?"Ver por item":"Ver por grade"); toggle.style.cssText="padding:5px 11px;font-size:12px;margin-left:auto";
+  toggle.onclick=()=>{ GRADE_VIEW=!GRADE_VIEW; go("nfdetail"); };
+  ph.appendChild(toggle);
+  panel.appendChild(ph);
   const tw=el("div","tbl-wrap");const tbl=el("table");
   const idxOf=p=>all.indexOf(p);
+  if(GRADE_VIEW){
+    const grupos=groupByGrade(ativos);
+    const body = !grupos.length
+      ? `<tr><td colspan="7" class="empty-row">Sem produtos.</td></tr>`
+      : grupos.map(grp=>`<tr${grp.bloqueado?' style="background:#fde8e4"':''}>
+          <td class="mono">${esc(grp.ref)}${grp.plus?' <span class="badge b-amber">plus</span>':''}</td>
+          <td>${esc(grp.desc)}</td>
+          <td>${esc(grp.cor||"—")}</td>
+          <td class="mono">${esc(gradeStr(grp.sizes))}</td>
+          <td>${esc(brNum(grp.qtd))}</td>
+          <td class="mono">R$ ${esc(brMoney(grp.valor))}</td>
+          <td>${grp.bloqueado?`<span class="badge b-danger">+100 variações — separar</span>`:`<span class="badge b-muted">${grp.variacoes} var.</span>`}</td></tr>`).join("");
+    tbl.innerHTML=`<thead><tr><th class="mono">Referência</th><th>Descrição</th><th>Cor</th><th class="mono">Grade</th><th>Qtd</th><th class="mono">Valor</th><th>Variações</th></tr></thead><tbody>${body}</tbody>`;
+    tw.appendChild(tbl);panel.appendChild(tw);
+    panel.appendChild(el("div","nf-pag",`<b>Leitura automática.</b> Grade, cor e plus size vêm como sugestão lida da descrição — valide no Cadastro ERP. Acima de 100 variações por referência, o sistema bloqueia e pede separação.`));
+    frag.appendChild(panel);
+  } else {
   const body = !ativos.length
     ? `<tr><td colspan="11" class="empty-row">Nenhum produto ativo nesta nota.</td></tr>`
-    : ativos.map(p=>{ const i=idxOf(p); const cat=CATALOG[catKey(p.ref)];
+    : ativos.map(p=>{ const i=idxOf(p); const cat=CATALOG[catKey(p.ref)]; const sug=p.sug||{};
       return `<tr${p.extra?' style="background:#fbf0e0"':''}>
-        <td class="mono">${esc(p.ref||"")}${p.extra?' <span class="badge b-amber">extra</span>':''}${cat?' <span class="badge b-ok" title="Já cadastrado antes">✓ cadastrado</span>':''}</td>
-        <td>${esc(p.descricao||"")}</td>
+        <td class="mono">${esc(p.ref||"")}${p.extra?' <span class="badge b-amber">extra</span>':''}${cat?' <span class="badge b-ok" title="Já cadastrado antes">✓ cadastrado</span>':''}${sug.plus?' <span class="badge b-amber">plus</span>':''}</td>
+        <td>${esc(p.descricao||"")}${(sug.cor||sug.tamanho)?`<br><span style="font-size:11px;color:var(--ink-3)">sugestão: ${esc([sug.cor,sug.tamanho].filter(Boolean).join(" · "))}</span>`:""}</td>
         <td class="mono">${esc(p.ncm||"")}</td>
         <td class="mono">${esc(p.cfop||"")}</td>
         <td class="mono">${esc(p.cst||"")}</td>
@@ -2178,6 +2251,7 @@ function renderNfView(nf){
       <th>Qtd NF</th><th>Qtd Receb.</th><th class="mono">V. Unit</th><th class="mono">V. Total</th><th class="mono">ICMS/IPI</th><th></th></tr></thead><tbody>${body}</tbody>`;
   tbl.querySelectorAll("[data-pdel]").forEach(b=>b.onclick=()=>deleteProduct(nf,+b.dataset.pdel));
   tw.appendChild(tbl);panel.appendChild(tw);frag.appendChild(panel);
+  }
 
   if(removidos.length){
     const rp=el("div","panel");
@@ -2437,11 +2511,11 @@ function renderNfErp(nf){
       ${cat.refFinal?`<span class="badge b-ok">✓ cadastrado antes: ${esc(cat.refFinal)}</span>`:`<span class="badge b-amber">novo</span>`}</div>
       <div class="erp-grid">
         <label>Ref original NF<input class="cf-in mono" value="${esc(p.ref||"")}" disabled></label>
-        <label>Ref real fornecedor<input class="cf-in" id="er-rr-${i}" value="${v('refReal','refReal')}"></label>
+        <label>Ref real fornecedor<input class="cf-in" id="er-rr-${i}" value="${v('refReal','refReal')||esc((p.sug&&p.sug.refReal)||'')}"></label>
         <label>Ref final ERP<input class="cf-in" id="er-rf-${i}" value="${v('refFinal','refFinal')||esc(p.ref||'')}"></label>
-        <label>Descrição final<input class="cf-in" id="er-df-${i}" value="${v('descFinal','descFinal')||esc(p.descricao||'')}"></label>
-        <label>Cor final<input class="cf-in" id="er-cor-${i}" value="${v('corFinal','corFinal')}"></label>
-        <label>Grade final<input class="cf-in" id="er-gr-${i}" value="${v('gradeFinal','gradeFinal')}"></label>
+        <label>Descrição final<input class="cf-in" id="er-df-${i}" value="${v('descFinal','descFinal')||esc((p.sug&&p.sug.descLimpa)||p.descricao||'')}"></label>
+        <label>Cor final<input class="cf-in" id="er-cor-${i}" value="${v('corFinal','corFinal')||esc((p.sug&&p.sug.cor)||'')}"></label>
+        <label>Grade final<input class="cf-in" id="er-gr-${i}" value="${v('gradeFinal','gradeFinal')||esc((p.sug&&p.sug.tamanho)||'')}"></label>
         <label>NCM<input class="cf-in mono" id="er-ncm-${i}" value="${v('ncm','ncm')||esc(p.ncm||'')}"></label>
         <label>Custo<input class="cf-in mono" id="er-cs-${i}" value="${v('custo','custo')||esc(p.vUnit||'')}"></label>
         <label>Preço de venda<input class="cf-in mono" id="er-pv-${i}" value="${v('preco','preco')}"></label>
