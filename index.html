@@ -1762,6 +1762,18 @@ function go(id){
       s.onRow=open; s.onAct=open;
       s.onDel=(ri)=>{ if(L[ri]) deleteNf(L[ri]); };
     }
+    if(id==="dv"){
+      const statusDiv=LIVE_NFS.filter(n=>(n.status||"")==="Divergência" && !n.excluida);
+      const map=new Map();
+      statusDiv.forEach(n=>map.set(n.id,{nf:n,tipo:"Etapa"}));
+      LIVE_NFS.filter(n=>!n.excluida && n.pcNumero).forEach(n=>{ const d=pcNfDiff(n); if(d&&d.divergente){ if(map.has(n.id)) map.get(n.id).tipo="Etapa + Valor PC"; else map.set(n.id,{nf:n,tipo:"Valor PC×NF"}); } });
+      const L=[...map.values()];
+      s.cols=[{k:"NF",t:"mono"},{k:"Fornecedor",t:"text"},{k:"CNPJ",t:"mono"},{k:"Tipo",t:"badge"},{k:"Detalhe",t:"text"},{k:"Ação",t:"act"},{k:"",t:"del"}];
+      s.rows=L.map(x=>{ const n=x.nf; let det=n.responsavel||""; if(x.tipo!=="Etapa"){ const d=pcNfDiff(n); if(d) det="PC "+(d.pc.numero||"")+" · dif R$ "+brMoneyN(d.diff); } return [n.numero||"",n.fornecedor||"—",n.emitenteCnpj||"",x.tipo,det,"Analisar",""]; });
+      const open=(ri)=>{ if(L[ri]) openNfDetail(L[ri].nf); };
+      s.onRow=open; s.onAct=open; s.onDel=(ri)=>{ if(L[ri]) deleteNf(L[ri].nf); };
+      s._dvCount=L.length;
+    }
     if(id==="cr"){
       s.cols=[{k:"Produto",t:"mono"},{k:"Motivo",t:"text"},{k:"Solicitante",t:"text"},{k:"Responsável",t:"text"},{k:"Antes",t:"text"},{k:"Depois",t:"text"},{k:"Tempo",t:"mono"},{k:"",t:"del"}];
       s.rows=LIVE_CORR.map(r=>[r.produto||"",r.motivo||"",r.solicitante||"",r.responsavel||"",r.antes||"",r.depois||"",r.tempo||"—",""]);
@@ -2149,6 +2161,28 @@ function restoreProduct(nf,idx){
     .catch(e=>toast("Erro: "+(e.message||e)));
 }
 
+function linkedPc(nf){ if(!nf||!nf.pcNumero) return null; return LIVE_PCS.find(p=>p.id===nf.pcId)||LIVE_PCS.find(p=>String(p.numero)===String(nf.pcNumero))||null; }
+function pcNfDiff(nf){
+  const pc=linkedPc(nf); if(!pc) return null;
+  const pcTot=pcTotal(pc); const nfTot=num((nf.totais&&nf.totais.vNF)||nf.vNF);
+  const diff=nfTot-pcTot; const tol=Math.max(5,nfTot*0.01);
+  return {pc,pcTot,nfTot,diff,divergente:Math.abs(diff)>tol};
+}
+function renderPcNfPanel(nf){
+  const d=pcNfDiff(nf); if(!d) return null;
+  const p=el("div","panel");
+  p.appendChild(el("div","panel-head",`<h2>Comparação com Pedido de Compra</h2><span class="badge ${d.divergente?"b-danger":"b-ok"}">${d.divergente?"Divergência":"Confere"}</span>`));
+  const g=el("div","nf-totais");
+  g.innerHTML=`<div class="tot-cell"><i>Pedido de Compra</i><b>PC ${esc(d.pc.numero||"")}</b></div>
+    <div class="tot-cell"><i>Total do PC (lido)</i><b>R$ ${esc(brMoneyN(d.pcTot))}</b></div>
+    <div class="tot-cell"><i>Total da NF</i><b>R$ ${esc(brMoneyN(d.nfTot))}</b></div>
+    <div class="tot-final" style="${d.divergente?"background:linear-gradient(90deg,#f7ddd6,#f3c9bf)":""}"><i>Diferença NF − PC</i><b>R$ ${esc(brMoneyN(d.diff))}</b></div>`;
+  p.appendChild(g);
+  p.appendChild(el("div","nf-pag",d.divergente
+    ? `<b style="color:var(--danger)">Valor diverge do pedido.</b> Confira itens e quantidades — esta NF aparece em Divergências para tratativa de compras.`
+    : `<b style="color:var(--ok)">Valor bate com o pedido.</b> Total da NF dentro da tolerância do PC.`));
+  return p;
+}
 function renderNfView(nf){
   const frag=document.createDocumentFragment();
   const t=nf.totais||{};
@@ -2205,6 +2239,8 @@ function renderNfView(nf){
   }
   pagBox.innerHTML=pagHtml;
   frag.appendChild(pagBox);
+
+  const cmp=renderPcNfPanel(nf); if(cmp) frag.appendChild(cmp);
 
   const bar=el("div","nf-actions");
   (STAGE_ACTIONS[nf.status]||[]).forEach(a=>{ const b=el("button","fa"+(a.cls?" "+a.cls:""),esc(a.l)); b.onclick=()=>advanceNf(nf,a); bar.appendChild(b); });
@@ -2360,7 +2396,7 @@ function setKpisLive(id,s,c){
   if(id==="fg"){ set(0,c.andamento); set(1,c.diverg); set(2,0); set(3,c.concl); }
   else if(id==="nf"){ set(0,c.aguard); set(1,c.fiscal+c.erp+c.site+c.etiq+c.concl); set(2,c.diverg); }
   else if(id==="ex"){ set(0,c.conf); set(1,c.itensConf); set(2,c.diverg); }
-  else if(id==="dv"){ set(0,c.diverg); set(1,0); set(2,0); }
+  else if(id==="dv"){ set(0, SCREENS.dv._dvCount!=null?SCREENS.dv._dvCount:c.diverg); set(1,0); set(2,0); }
   else if(id==="er"){ set(0,c.erp); set(1,0); set(2,c.erp); }
   else if(id==="st"){ set(0,c.site); set(1,0); set(2,0); }
   else if(id==="et"){ set(0,c.etiq); set(1,0); set(2,0); }
@@ -2571,21 +2607,32 @@ function savePcEdit(){
     .then(()=>{ recordAction("Pedido de Compra","Editou PC","","PC "+(upd.numero||"")); toast("Pedido atualizado"); Object.assign(pc,upd); SELECTED_PC=pc; go("pcview"); })
     .catch(e=>toast("Erro: "+(e.message||e)));
 }
+function pcNum(s){ return parseFloat(String(s||"").replace(/\./g,"").replace(",",".")) || 0; }
+function brMoneyN(n){ return (n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function extractPcItems(text){
   if(!text) return [];
   const t=String(text).replace(/\s+/g," ");
-  const items=[]; const seen=new Set();
-  const re=/(\d{6})\s+([A-Z]{2,4})\s+([A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9\/\.\-\s]*?)\s+R\$\s*([\d.]+,\d{2})(?:\s+([\d.]+,\d{2}))?/g;
+  const A=[],B=[],C=[]; const sA=new Set(),sB=new Set(),sC=new Set();
   let m;
-  while((m=re.exec(t))){
-    let desc=m[3].trim().replace(/\s{2,}/g," ");
-    if(desc.length>48) desc=desc.slice(0,48)+"…";
-    const key=m[1]+"|"+m[2]+"|"+m[4];
-    if(seen.has(key)) continue; seen.add(key);
-    items.push({ref:m[1], cod:m[2], descricao:desc, vUnit:m[4], vTotal:m[5]||""});
-  }
-  return items;
+  // Layout A — Goyazes: REF(6díg) COD(2-4 letras) DESCRIÇÃO R$ unit [total]
+  const reA=/(\d{6})\s+([A-Z]{2,4})\s+([A-Za-zÀ-ÿ0-9\/\.\-][A-Za-zÀ-ÿ0-9\/\.\-\s]*?)\s+R\$\s*([\d.]+,\d{2})(?:\s+([\d.]+,\d{2}))?/g;
+  while((m=reA.exec(t))){ let d=m[3].trim().replace(/\s{2,}/g," "); if(d.length>48)d=d.slice(0,48)+"…"; const k=m[1]+m[4]; if(sA.has(k))continue; sA.add(k);
+    A.push({ref:m[1],cod:m[2],descricao:d,qtd:"",vUnit:m[4],vTotal:m[5]||brMoneyN(pcNum(m[4]))}); }
+  // Layout B — "Pedido de Compra por Loja"/Data System: DESC CÓDIGO Total ... qtd qtd Preço de Compra: R$ unit
+  const reB=/([A-ZÀ-Ÿ][A-ZÀ-Ÿ \/]{3,44}?)\s+(\d{3,6})\s+Total\b[\s\S]{0,90}?(\d+)\s+(\d+)\s+Pre[çc]o de Compra:\s*R\$\s*([\d.]+,\d{2})/g;
+  while((m=reB.exec(t))){ let d=m[1].trim().replace(/\s{2,}/g," "); const q=parseInt(m[4]||m[3])||0; const u=pcNum(m[5]); const k=m[2]+d+m[5]; if(sB.has(k))continue; sB.add(k);
+    B.push({ref:m[2],cod:"",descricao:d,qtd:String(q),vUnit:m[5],vTotal:brMoneyN(u*q)}); }
+  // Layout C — genérico: "<descrição> R$ valor"
+  const reC=/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9\/\.\- ]{4,44}?)\s+R\$\s*([\d.]+,\d{2})/g;
+  while((m=reC.exec(t))){ let d=m[1].trim().replace(/\s{2,}/g," "); if(/total|desconto|pagamento|vencimento|resumo|frete|valor|preço|preco/i.test(d))continue; const k=d+m[2]; if(sC.has(k))continue; sC.add(k);
+    C.push({ref:"",cod:"",descricao:d.length>48?d.slice(0,48)+"…":d,qtd:"",vUnit:m[2],vTotal:""}); }
+  if(A.length>=2) return A;
+  if(B.length>=2) return B;
+  if(A.length||B.length) return A.length?A:B;
+  return C.slice(0,40);
 }
+function pcItemsOf(pc){ return (pc&&pc.itens&&pc.itens.length)?pc.itens:extractPcItems(pc&&pc.textoPdf); }
+function pcTotal(pc){ return pcItemsOf(pc).reduce((a,it)=>a+pcNum(it.vTotal),0); }
 function renderPcView(pc){
   const frag=document.createDocumentFragment();
   const head=el("div","nfhead");
@@ -2619,13 +2666,13 @@ function renderPcView(pc){
   form.querySelector(".erp-grid").after(bar);
   frag.appendChild(form);
 
-  const itens=extractPcItems(pc.textoPdf);
+  const itens=pcItemsOf(pc);
   if(itens.length){
     const ip=el("div","panel");
-    ip.appendChild(el("div","panel-head",`<h2>Itens do pedido</h2><span class="badge b-muted">${itens.length} lidos do PDF</span>`));
+    ip.appendChild(el("div","panel-head",`<h2>Itens do pedido</h2><span class="badge b-muted">${itens.length} itens · total R$ ${esc(brMoneyN(pcTotal(pc)))}</span>`));
     const tw=el("div","tbl-wrap");const tbl=el("table");
-    tbl.innerHTML=`<thead><tr><th class="mono">Ref</th><th class="mono">Cód</th><th>Descrição</th><th class="mono">V. Unit</th><th class="mono">V. Total</th></tr></thead><tbody>`+
-      itens.map(it=>`<tr><td class="mono">${esc(it.ref)}</td><td class="mono">${esc(it.cod)}</td><td>${esc(it.descricao)}</td><td class="mono">R$ ${esc(it.vUnit)}</td><td class="mono">${it.vTotal?"R$ "+esc(it.vTotal):"—"}</td></tr>`).join("")+
+    tbl.innerHTML=`<thead><tr><th class="mono">Ref</th><th>Descrição</th><th>Qtd</th><th class="mono">V. Unit</th><th class="mono">V. Total</th></tr></thead><tbody>`+
+      itens.map(it=>`<tr><td class="mono">${esc(it.ref||it.cod||"—")}</td><td>${esc(it.descricao)}</td><td>${esc(it.qtd||"—")}</td><td class="mono">R$ ${esc(it.vUnit)}</td><td class="mono">${it.vTotal?"R$ "+esc(it.vTotal):"—"}</td></tr>`).join("")+
       `</tbody></table>`;
     tw.appendChild(tbl);ip.appendChild(tw);
     ip.appendChild(el("div","nf-pag",`<b>Leitura automática do PDF.</b> Itens reconhecidos pelo padrão do pedido — confira com o texto original abaixo.`));
@@ -2719,6 +2766,7 @@ function savePc(){
     numero:num, fornecedor:$("#pc-forn").value.trim(), cnpj:$("#pc-cnpj").value.trim(),
     previsao:$("#pc-prev").value||"", obs:$("#pc-obs").value.trim(),
     pdfNome:PC_PDFNAME, textoPdf:($("#pc-text").value||"").slice(0,20000),
+    itens:extractPcItems($("#pc-text").value||""),
     status:"Aberto", criadoPor:CURRENT_USER.name, ts:firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=>{
     recordAction("Pedido de Compra","Subiu PDF","","PC "+num+(PC_PDFNAME?(" — "+PC_PDFNAME):""));
